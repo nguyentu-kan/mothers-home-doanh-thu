@@ -31,6 +31,7 @@ const TYPE_LABELS: Record<DraftEntryType, string> = {
   ROOM_CHUYEN_KHOAN: "Thu phòng — Chuyển khoản",
   OTA: "OTA công nợ",
   CON_THU: "Còn phải thu (chưa có tiền)",
+  CHUYEN_CHO_CO_VAN: "🔁 Chuyển cho Cô Vân",
   CHI_MAT_BANG: "Chi — Mặt bằng",
   CHI_LUONG: "Chi — Lương",
   CHI_MUA_HANG: "Chi — Mua hàng",
@@ -125,7 +126,7 @@ export default function QuickCaptureForm() {
   function addDraftEntry() {
     setDraft((prev) => {
       const base = prev ?? (parseState?.ok ? parseState.entries : []);
-      return [...base, { type: "CHI_KHAC", amount: 0, note: "", date: null }];
+      return [...base, { type: "CHI_KHAC", amount: 0, note: "", date: null, imageIndex: null }];
     });
   }
 
@@ -142,7 +143,17 @@ export default function QuickCaptureForm() {
     setConfirmPending(true);
     setConfirmError(null);
     try {
-      const result = await confirmQuickCaptureAction(currentDraft);
+      const formData = new FormData();
+      formData.append("entries", JSON.stringify(currentDraft));
+      // Đính kèm đúng ảnh gốc cho các khoản có gắn imageIndex (vd ảnh chuyển khoản cho Cô Vân) —
+      // dùng Set để mỗi ảnh chỉ gửi 1 lần dù có thể có nhiều khoản cùng tham chiếu.
+      const imageIndexes = new Set(
+        currentDraft.filter((e) => e.imageIndex !== null).map((e) => e.imageIndex as number)
+      );
+      for (const idx of imageIndexes) {
+        if (images[idx]) formData.append(`image_${idx}`, images[idx]);
+      }
+      const result = await confirmQuickCaptureAction(formData);
       if (!result.ok) {
         setConfirmError(result.error);
         return;
@@ -193,6 +204,11 @@ export default function QuickCaptureForm() {
                 </option>
               ))}
             </select>
+            {entry.imageIndex !== null && (
+              <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                📎 Sẽ đính kèm Ảnh {entry.imageIndex + 1} làm bằng chứng
+              </p>
+            )}
             <div>
               <label className="field-label text-sm">Ngày</label>
               <input

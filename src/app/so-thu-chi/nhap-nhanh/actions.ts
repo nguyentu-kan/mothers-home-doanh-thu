@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/session";
 import { canManageCashbook } from "@/lib/permissions";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 import { parseQuickCapture, type DraftEntry } from "@/lib/gemini";
+import { uploadAttachments } from "@/lib/supabase";
 
 async function requireCashbookAccess() {
   const session = await requireSession();
@@ -45,9 +46,16 @@ const EXPENSE_NOTE_FALLBACK: Record<string, string> = {
 };
 
 export async function confirmQuickCaptureAction(
-  entries: DraftEntry[]
+  formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireCashbookAccess();
+
+  let entries: DraftEntry[];
+  try {
+    entries = JSON.parse(String(formData.get("entries") || "[]"));
+  } catch {
+    return { ok: false, error: "Dữ liệu không hợp lệ, vui lòng thử lại." };
+  }
 
   if (!Array.isArray(entries) || entries.length === 0) {
     return { ok: false, error: "Không có khoản nào để lưu." };
@@ -60,8 +68,27 @@ export async function confirmQuickCaptureAction(
   }
 
   await Promise.all(
-    entries.map((entry) => {
+    entries.map(async (entry) => {
       const time = entry.date ? new Date(entry.date) : new Date();
+
+      if (entry.type === "CHUYEN_CHO_CO_VAN") {
+        let attachmentUrls: string[] = [];
+        if (entry.imageIndex !== null) {
+          const file = formData.get(`image_${entry.imageIndex}`);
+          if (file instanceof File && file.size > 0) {
+            attachmentUrls = await uploadAttachments([file]);
+          }
+        }
+        return prisma.ownerTransfer.create({
+          data: {
+            amount: entry.amount,
+            note: entry.note || null,
+            attachmentUrls,
+            time,
+            recordedByUserId: session.userId,
+          },
+        });
+      }
 
       if (entry.type === "ROOM_TIEN_MAT" || entry.type === "ROOM_CHUYEN_KHOAN") {
         return prisma.roomRevenueEntry.create({

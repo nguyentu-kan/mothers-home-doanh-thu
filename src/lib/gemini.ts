@@ -3,6 +3,7 @@ export type DraftEntryType =
   | "ROOM_CHUYEN_KHOAN"
   | "OTA"
   | "CON_THU"
+  | "CHUYEN_CHO_CO_VAN"
   | "CHI_MAT_BANG"
   | "CHI_LUONG"
   | "CHI_MUA_HANG"
@@ -13,6 +14,10 @@ export type DraftEntry = {
   amount: number;
   note: string;
   date: string | null;
+  // Nếu khoản này được đọc ra TỪ 1 ảnh chụp màn hình chuyển khoản cụ thể (vd bằng chứng chuyển
+  // tiền cho Cô Vân), đây là chỉ số (đếm từ 0) của ảnh đó trong danh sách ảnh đã gửi lên — dùng để
+  // đính kèm đúng ảnh đó làm bằng chứng khi lưu. null nếu khoản này không gắn với 1 ảnh cụ thể.
+  imageIndex: number | null;
 };
 
 const DRAFT_TYPES: DraftEntryType[] = [
@@ -20,6 +25,7 @@ const DRAFT_TYPES: DraftEntryType[] = [
   "ROOM_CHUYEN_KHOAN",
   "OTA",
   "CON_THU",
+  "CHUYEN_CHO_CO_VAN",
   "CHI_MAT_BANG",
   "CHI_LUONG",
   "CHI_MUA_HANG",
@@ -30,10 +36,13 @@ const SYSTEM_PROMPT = `Bạn là trợ lý đọc sổ thu chi cho một khách 
 Đọc nội dung được cung cấp (có thể là ảnh chụp sổ tay viết tay, ảnh hoá đơn/chuyển khoản, hoặc đoạn chữ do nhân viên đọc/gõ) và trích xuất TẤT CẢ các khoản Thu hoặc Chi tìm thấy.
 
 Mỗi khoản trả về 1 object với các trường:
-- type: bắt buộc là một trong: "ROOM_TIEN_MAT" (thu tiền phòng bằng tiền mặt), "ROOM_CHUYEN_KHOAN" (thu tiền phòng qua chuyển khoản), "OTA" (công nợ từ Agoda/Ctrip/Booking...), "CON_THU" (khách còn nợ trực tiếp khách sạn, CHƯA thu được tiền — xem hướng dẫn "còn thu Y" bên dưới), "CHI_MAT_BANG" (chi tiền thuê mặt bằng), "CHI_LUONG" (chi trả lương), "CHI_MUA_HANG" (chi mua hàng/nguyên vật liệu/đồ dùng), "CHI_KHAC" (chi phí khác không rõ loại)
+- type: bắt buộc là một trong: "ROOM_TIEN_MAT" (thu tiền phòng bằng tiền mặt), "ROOM_CHUYEN_KHOAN" (thu tiền phòng qua chuyển khoản), "OTA" (công nợ từ Agoda/Ctrip/Booking...), "CON_THU" (khách còn nợ trực tiếp khách sạn, CHƯA thu được tiền — xem hướng dẫn "còn thu Y" bên dưới), "CHUYEN_CHO_CO_VAN" (Ngọc Tiên chuyển khoản tiền cho Cô Vân — xem hướng dẫn riêng bên dưới), "CHI_MAT_BANG" (chi tiền thuê mặt bằng), "CHI_LUONG" (chi trả lương), "CHI_MUA_HANG" (chi mua hàng/nguyên vật liệu/đồ dùng), "CHI_KHAC" (chi phí khác không rõ loại)
 - amount: số tiền, đơn vị VNĐ, là số nguyên (vd 500000, không phải "500k" hay "500.000đ")
 - note: ghi chú ngắn gọn (số phòng, tên khách, lý do chi...), nếu không có thì để chuỗi rỗng
 - date: BẮT BUỘC đúng định dạng "YYYY-MM-DD" (4 số năm - 2 số tháng - 2 số ngày) nếu đọc được. Ký hiệu Việt Nam luôn là ngày/tháng, KHÔNG phải tháng/ngày — vd sổ ghi "9/8" nghĩa là ngày 9 tháng 8, năm hiện tại là ${new Date().getFullYear()}, phải trả về "${new Date().getFullYear()}-08-09". Nếu không đọc được ngày rõ ràng, để null — TUYỆT ĐỐI không trả về dạng "9/8" hay bất kỳ định dạng nào khác ngoài YYYY-MM-DD hoặc null.
+- imageIndex: nếu khoản này được đọc TỪ 1 ẢNH CHỤP MÀN HÌNH CHUYỂN KHOẢN cụ thể (xem "Ảnh số N:" ngay trước mỗi ảnh được gửi), trả về đúng số N của ảnh đó. Nếu khoản này đọc từ ảnh sổ tay/ghi chú (không phải ảnh chụp màn hình riêng cho khoản này) hoặc từ chữ gõ tay, để null.
+
+Nhận diện ẢNH CHỤP MÀN HÌNH CHUYỂN KHOẢN (khác với ảnh chụp sổ tay viết tay): thường là giao diện app ngân hàng/ví điện tử, có chữ như "Giao dịch thành công", "Chuyển tiền thành công", số tiền lớn ở giữa, tên/số tài khoản người nhận, mã giao dịch. Nếu 1 ảnh thuộc dạng này VÀ người nhận có tên gần giống "Cô Vân"/tên chủ khách sạn (hoặc không ghi rõ người nhận nhưng ngữ cảnh cho thấy đây là chuyển tiền nội bộ, không phải khách trả tiền phòng) — trích xuất thành 1 khoản type "CHUYEN_CHO_CO_VAN", amount = số tiền trên ảnh, note = tên người nhận nếu có, và BẮT BUỘC set đúng imageIndex = số thứ tự ảnh đó.
 
 Nếu không chắc chắn khoản đó là Thu tiền mặt hay chuyển khoản, ưu tiên chọn ROOM_TIEN_MAT cho khoản Thu, và CHI_KHAC cho khoản Chi.
 
@@ -65,9 +74,10 @@ export async function parseQuickCapture(input: {
   if (input.text?.trim()) {
     parts.push({ text: `Nội dung cần đọc:\n${input.text.trim()}` });
   }
-  for (const img of input.images ?? []) {
+  (input.images ?? []).forEach((img, index) => {
+    parts.push({ text: `Ảnh số ${index}:` });
     parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
-  }
+  });
 
   if (parts.length === 1) {
     return { error: "Chưa có ảnh hoặc nội dung nào để đọc." };
@@ -86,6 +96,7 @@ export async function parseQuickCapture(input: {
             amount: { type: "INTEGER" },
             note: { type: "STRING" },
             date: { type: "STRING", nullable: true },
+            imageIndex: { type: "INTEGER", nullable: true },
           },
           required: ["type", "amount"],
         },
@@ -148,9 +159,10 @@ export async function parseQuickCapture(input: {
     return { error: "AI không tìm thấy khoản thu/chi nào rõ ràng. Vui lòng thử lại." };
   }
 
+  const imageCount = input.images?.length ?? 0;
   const entries: DraftEntry[] = parsed
     .filter(
-      (e): e is { type: string; amount: number; note?: string; date?: string | null } =>
+      (e): e is { type: string; amount: number; note?: string; date?: string | null; imageIndex?: number | null } =>
         e && typeof e.amount === "number" && DRAFT_TYPES.includes(e.type)
     )
     .map((e) => ({
@@ -160,6 +172,9 @@ export async function parseQuickCapture(input: {
       // Chỉ chấp nhận đúng định dạng YYYY-MM-DD — phòng trường hợp AI lỡ trả sai định dạng
       // (vd "9/8") dù đã dặn trong prompt, tránh hiểu nhầm ngày/tháng khi lưu vào database.
       date: e.date && /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : null,
+      // Chỉ chấp nhận chỉ số hợp lệ trong phạm vi số ảnh thật đã gửi lên, phòng AI trả số sai.
+      imageIndex:
+        typeof e.imageIndex === "number" && e.imageIndex >= 0 && e.imageIndex < imageCount ? e.imageIndex : null,
     }));
 
   if (entries.length === 0) {
