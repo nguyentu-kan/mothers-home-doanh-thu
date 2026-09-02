@@ -10,6 +10,15 @@ import { formatVnd, formatDateVn } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
 import PendingReceivablesList from "./con-thu/PendingReceivablesList";
+import TodayCashbookEntriesList from "./TodayCashbookEntriesList";
+
+const OTA_PLATFORM_LABEL: Record<string, string> = { AGODA: "Agoda", CTRIP: "Ctrip", BOOKING: "Booking.com", KHAC: "Khác" };
+const EXPENSE_CATEGORY_LABEL: Record<string, string> = {
+  MAT_BANG: "Mặt bằng",
+  LUONG: "Lương",
+  MUA_HANG: "Mua hàng",
+  KHAC: "Khác",
+};
 
 // Sau giờ này mà chưa ghi khoản Thu phòng nào trong ngày thì nhắc — hầu hết ngày khách sạn đều
 // có khách nhận/trả phòng trước giờ này, nên im lặng tới lúc đó nhiều khả năng là quên ghi.
@@ -26,18 +35,47 @@ export default async function SoThuChiPage({
   const now = new Date();
   const todayFilter = { gte: startOfDay(now), lte: endOfDay(now) };
 
-  const [summary, roomToday, otaToday, expenseToday, serviceToday, pendingReceivables] = await Promise.all([
-    getCashbookSummary(from, to),
-    prisma.roomRevenueEntry.count({ where: { time: todayFilter } }),
-    prisma.otaReceivable.count({ where: { date: todayFilter } }),
-    prisma.expense.count({ where: { time: todayFilter } }),
-    prisma.serviceRecord.count({ where: { time: todayFilter } }),
-    prisma.pendingReceivable.findMany({
-      where: { status: "PENDING" },
-      orderBy: { time: "asc" },
-      include: { recordedByUser: { select: { name: true } } },
-    }),
-  ]);
+  const [summary, roomEntriesToday, otaEntriesToday, expenseEntriesToday, serviceToday, pendingReceivables] =
+    await Promise.all([
+      getCashbookSummary(from, to),
+      prisma.roomRevenueEntry.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
+      prisma.otaReceivable.findMany({ where: { date: todayFilter }, orderBy: { date: "desc" } }),
+      prisma.expense.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
+      prisma.serviceRecord.count({ where: { time: todayFilter } }),
+      prisma.pendingReceivable.findMany({
+        where: { status: "PENDING" },
+        orderBy: { time: "asc" },
+        include: { recordedByUser: { select: { name: true } } },
+      }),
+    ]);
+
+  const roomToday = roomEntriesToday.length;
+  const otaToday = otaEntriesToday.length;
+  const expenseToday = expenseEntriesToday.length;
+
+  const todayCashbookEntries = [
+    ...roomEntriesToday.map((r) => ({
+      id: r.id,
+      kind: "ROOM" as const,
+      time: r.time,
+      amount: r.amount,
+      description: `Thu phòng — ${r.note || (r.method === "TIEN_MAT" ? "Tiền mặt" : "Chuyển khoản")}`,
+    })),
+    ...otaEntriesToday.map((o) => ({
+      id: o.id,
+      kind: "OTA" as const,
+      time: o.date,
+      amount: o.amount,
+      description: `OTA — ${OTA_PLATFORM_LABEL[o.platform]}${o.note ? " — " + o.note : ""}`,
+    })),
+    ...expenseEntriesToday.map((e) => ({
+      id: e.id,
+      kind: "EXPENSE" as const,
+      time: e.time,
+      amount: e.amount,
+      description: `Chi — ${EXPENSE_CATEGORY_LABEL[e.category]} — ${e.note}`,
+    })),
+  ].sort((a, b) => b.time.getTime() - a.time.getTime());
 
   const showReminder = now.getHours() >= REMINDER_HOUR && roomToday === 0;
 
@@ -144,6 +182,8 @@ export default async function SoThuChiPage({
           <ChecklistRow label="Chi phí" count={expenseToday} />
           <ChecklistRow label="Cà phê/Spa (nhân viên khác ghi)" count={serviceToday} />
         </div>
+
+        <TodayCashbookEntriesList entries={todayCashbookEntries} />
 
         <PrintButton />
       </main>

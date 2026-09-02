@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { canManageCashbook } from "@/lib/permissions";
+import { canManageCashbook, isManager } from "@/lib/permissions";
 import { uploadAttachments } from "@/lib/supabase";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
+import { startOfDay } from "date-fns";
 
 export type CashbookFormState = { error: string } | undefined;
 
@@ -137,4 +138,81 @@ export async function addExpenseAction(
   await checkCashAndMaybeAlert();
   revalidatePath("/so-thu-chi");
   redirect("/so-thu-chi?saved=chi");
+}
+
+type DeleteResult = { ok: true } | { ok: false; error: string };
+
+// Chỉ tự xoá được khoản của chính mình, trong hôm nay — sửa sai bằng cách xoá rồi ghi lại.
+// Quản lý/Chủ sở hữu xoá được khoản của bất kỳ ai trong ngày để hỗ trợ sửa lỗi.
+async function checkDeletePermission(
+  session: Awaited<ReturnType<typeof requireCashbookAccess>>,
+  record: { recordedByUserId: string; time: Date }
+): Promise<DeleteResult> {
+  if (record.recordedByUserId !== session.userId && !isManager(session.role)) {
+    return { ok: false, error: "Bạn không có quyền xoá khoản này." };
+  }
+  if (record.time < startOfDay(new Date())) {
+    return { ok: false, error: "Chỉ xoá được khoản ghi trong hôm nay." };
+  }
+  return { ok: true };
+}
+
+export async function deleteRoomRevenueAction(id: string): Promise<DeleteResult> {
+  const session = await requireCashbookAccess();
+
+  const record = await prisma.roomRevenueEntry.findUnique({
+    where: { id },
+    include: { pendingReceivable: true },
+  });
+  if (!record) return { ok: false, error: "Không tìm thấy khoản này." };
+  const permission = await checkDeletePermission(session, record);
+  if (!permission.ok) return permission;
+
+  // Nếu khoản này thật ra là tiền vừa thu từ 1 khoản "Còn phải thu" (khách nợ), xoá nhầm sẽ làm
+  // mất luôn dấu vết khách còn nợ — trả khoản đó về trạng thái "chưa thu" thay vì mất hẳn.
+  if (record.pendingReceivable) {
+    await prisma.pendingReceivable.update({
+      where: { id: record.pendingReceivable.id },
+      data: {
+        status: "PENDING",
+        collectedMethod: null,
+        collectedTransferAccount: null,
+        collectedAt: null,
+        collectedByUserId: null,
+        roomRevenueEntryId: null,
+      },
+    });
+  }
+
+  await prisma.roomRevenueEntry.delete({ where: { id } });
+  await checkCashAndMaybeAlert();
+  revalidatePath("/so-thu-chi");
+  return { ok: true };
+}
+
+export async function deleteOtaAction(id: string): Promise<DeleteResult> {
+  const session = await requireCashbookAccess();
+
+  const record = await prisma.otaReceivable.findUnique({ where: { id } });
+  if (!record) return { ok: false, error: "Không tìm thấy khoản này." };
+  const permission = await checkDeletePermission(session, { recordedByUserId: record.recordedByUserId, time: record.date });
+  if (!permission.ok) return permission;
+
+  await prisma.otaReceivable.delete({ where: { id } });
+  revalidatePath("/so-thu-chi");
+  return { ok: true };
+}
+
+export async function deleteExpenseAction(id: string): Promise<DeleteResult> {
+  const session = await requireCashbookAccess();
+
+  const record = await prisma.expense.findUnique({ where: { id } });
+  if (!record) return { ok: false, error: "Không tìm thấy khoản này." };
+  const permission = await checkDeletePermission(session, record);
+  if (!permission.ok) return permission;
+
+  await prisma.expense.delete({ where: { id } });
+  await checkCashAndMaybeAlert();
+  revalidatePath("/so-thu-chi");
+  return { ok: true };
 }
