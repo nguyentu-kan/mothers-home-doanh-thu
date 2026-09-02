@@ -185,6 +185,15 @@ export default async function SoThuChiPage({
 
         <TodayCashbookEntriesList entries={todayCashbookEntries} />
 
+        <div className="no-print flex flex-col gap-1.5">
+          <a href="/so-thu-chi/backup" className="rounded-xl py-3 text-center font-semibold bg-slate-600 text-white">
+            💾 Sao lưu toàn bộ dữ liệu
+          </a>
+          <p className="text-xs text-slate-400 text-center">
+            Tải về máy rồi đưa lên Google Drive lưu — nên làm định kỳ (vd mỗi tuần), phòng khi có sự cố.
+          </p>
+        </div>
+
         <PrintButton />
       </main>
     </>
