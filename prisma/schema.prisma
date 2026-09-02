@@ -52,6 +52,13 @@ enum ExpenseCategory {
   KHAC
 }
 
+// Chuyển khoản Thu phòng có thể vào tài khoản cá nhân của Ngọc Tiên hoặc thẳng tài khoản Cô Vân —
+// nếu vào tài khoản Tiên thì sau đó còn phải chuyển tiếp cho Cô Vân, cần theo dõi riêng để tránh nhầm.
+enum TransferAccount {
+  TIEN
+  VAN
+}
+
 model User {
   id                String   @id @default(cuid())
   name              String
@@ -111,6 +118,7 @@ model RoomRevenueEntry {
   time          DateTime   @default(now())
   amount        Int
   method        CashMethod
+  transferAccount TransferAccount?
   note          String?
   attachmentUrls String[] @default([])
 

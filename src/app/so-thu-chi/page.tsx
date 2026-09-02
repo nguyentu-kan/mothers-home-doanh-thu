@@ -71,6 +71,17 @@ export default async function SoThuChiPage({
           </div>
         </div>
 
+        {summary.roomChuyenKhoanTaiKhoanTien > 0 && (
+          <div className="no-print rounded-2xl bg-amber-100 dark:bg-amber-900/40 px-4 py-3 flex justify-between items-center">
+            <span className="font-semibold text-amber-900 dark:text-amber-200">
+              💸 Đang ở TK Tiên, cần chuyển cho Cô Vân
+            </span>
+            <span className="font-extrabold text-amber-900 dark:text-amber-200">
+              {formatVnd(summary.roomChuyenKhoanTaiKhoanTien)}
+            </span>
+          </div>
+        )}
+
         <PrintButton />
       </main>
     </>

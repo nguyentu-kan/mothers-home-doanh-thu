@@ -6,6 +6,7 @@ import { addRoomRevenueAction, type CashbookFormState } from "../actions";
 export default function RoomRevenueForm() {
   const [state, action, pending] = useActionState<CashbookFormState, FormData>(addRoomRevenueAction, undefined);
   const [method, setMethod] = useState<"TIEN_MAT" | "CHUYEN_KHOAN" | "">("");
+  const [transferAccount, setTransferAccount] = useState<"TIEN" | "VAN" | "">("");
   const [attachmentCount, setAttachmentCount] = useState(0);
 
   return (
@@ -22,7 +23,10 @@ export default function RoomRevenueForm() {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setMethod("TIEN_MAT")}
+            onClick={() => {
+              setMethod("TIEN_MAT");
+              setTransferAccount("");
+            }}
             className={`rounded-xl py-3 font-semibold ${method === "TIEN_MAT" ? "bg-[#1B3A5C] text-white" : "bg-slate-200 dark:bg-white/10"}`}
           >
             Tiền mặt
@@ -37,6 +41,29 @@ export default function RoomRevenueForm() {
         </div>
         <input type="hidden" name="method" value={method} />
       </div>
+
+      {method === "CHUYEN_KHOAN" && (
+        <div>
+          <label className="field-label">Chuyển khoản vào</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTransferAccount("TIEN")}
+              className={`rounded-xl py-3 font-semibold ${transferAccount === "TIEN" ? "bg-[#1B3A5C] text-white" : "bg-slate-200 dark:bg-white/10"}`}
+            >
+              TK Ngọc Tiên
+            </button>
+            <button
+              type="button"
+              onClick={() => setTransferAccount("VAN")}
+              className={`rounded-xl py-3 font-semibold ${transferAccount === "VAN" ? "bg-[#1B3A5C] text-white" : "bg-slate-200 dark:bg-white/10"}`}
+            >
+              TK Cô Vân
+            </button>
+          </div>
+          <input type="hidden" name="transferAccount" value={transferAccount} />
+        </div>
+      )}
 
       <div>
         <label className="field-label" htmlFor="note">
@@ -63,7 +90,11 @@ export default function RoomRevenueForm() {
 
       {state?.error && <p className="rounded-xl bg-red-100 px-4 py-3 text-red-800 font-semibold">{state.error}</p>}
 
-      <button type="submit" disabled={pending || !method} className="btn-big bg-emerald-600">
+      <button
+        type="submit"
+        disabled={pending || !method || (method === "CHUYEN_KHOAN" && !transferAccount)}
+        className="btn-big bg-emerald-600"
+      >
         {pending ? "Đang lưu..." : "Lưu"}
       </button>
     </form>

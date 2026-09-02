@@ -67,15 +67,19 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       recordedByName: s.recordedByUser.name,
       attachmentUrls: [],
     })),
-    ...rooms.map((r) => ({
-      time: r.time,
-      type: "Thu phòng",
-      description: r.note || "",
-      amount: r.amount,
-      method: PAYMENT_LABEL[r.method],
-      recordedByName: r.recordedByUser.name,
-      attachmentUrls: r.attachmentUrls,
-    })),
+    ...rooms.map((r) => {
+      const accountTag =
+        r.transferAccount === "TIEN" ? " (TK Tiên)" : r.transferAccount === "VAN" ? " (TK Cô Vân)" : "";
+      return {
+        time: r.time,
+        type: "Thu phòng",
+        description: (r.note || "") + accountTag,
+        amount: r.amount,
+        method: PAYMENT_LABEL[r.method] + accountTag,
+        recordedByName: r.recordedByUser.name,
+        attachmentUrls: r.attachmentUrls,
+      };
+    }),
     ...otas.map((o) => ({
       time: o.date,
       type: "OTA công nợ",

@@ -30,6 +30,7 @@ export async function addRoomRevenueAction(
 
   const amount = parseInt(String(formData.get("amount") || "0"), 10);
   const method = String(formData.get("method") || "");
+  const transferAccount = String(formData.get("transferAccount") || "");
   const note = String(formData.get("note") || "").trim() || null;
   const attachments = getAttachmentFiles(formData);
 
@@ -39,11 +40,21 @@ export async function addRoomRevenueAction(
   if (method !== "TIEN_MAT" && method !== "CHUYEN_KHOAN") {
     return { error: "Vui lòng chọn hình thức." };
   }
+  if (method === "CHUYEN_KHOAN" && transferAccount !== "TIEN" && transferAccount !== "VAN") {
+    return { error: "Vui lòng chọn chuyển khoản vào tài khoản của ai." };
+  }
 
   const attachmentUrls = await uploadAttachments(attachments);
 
   await prisma.roomRevenueEntry.create({
-    data: { amount, method, note, attachmentUrls, recordedByUserId: session.userId },
+    data: {
+      amount,
+      method,
+      transferAccount: method === "CHUYEN_KHOAN" ? (transferAccount as "TIEN" | "VAN") : null,
+      note,
+      attachmentUrls,
+      recordedByUserId: session.userId,
+    },
   });
 
   await checkCashAndMaybeAlert();

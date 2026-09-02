@@ -6,6 +6,8 @@ export type CashbookSummary = {
   to: Date;
   roomTienMat: number;
   roomChuyenKhoan: number;
+  // Trong tổng chuyển khoản trên, phần nào đang nằm ở TK cá nhân Ngọc Tiên — cần chuyển tiếp cho Cô Vân.
+  roomChuyenKhoanTaiKhoanTien: number;
   ota: number;
   cafe: number;
   spa: number;
@@ -21,9 +23,13 @@ export type CashbookSummary = {
 export async function getCashbookSummary(from: Date, to: Date): Promise<CashbookSummary> {
   const timeFilter = { gte: from, lte: to };
 
-  const [roomTM, roomCK, ota, cafe, spa, expenses] = await Promise.all([
+  const [roomTM, roomCK, roomCKTien, ota, cafe, spa, expenses] = await Promise.all([
     prisma.roomRevenueEntry.aggregate({ _sum: { amount: true }, where: { method: "TIEN_MAT", time: timeFilter } }),
     prisma.roomRevenueEntry.aggregate({ _sum: { amount: true }, where: { method: "CHUYEN_KHOAN", time: timeFilter } }),
+    prisma.roomRevenueEntry.aggregate({
+      _sum: { amount: true },
+      where: { method: "CHUYEN_KHOAN", transferAccount: "TIEN", time: timeFilter },
+    }),
     prisma.otaReceivable.aggregate({ _sum: { amount: true }, where: { date: timeFilter } }),
     prisma.serviceRecord.aggregate({ _sum: { amount: true }, where: { category: "CA_PHE", time: timeFilter } }),
     prisma.serviceRecord.aggregate({ _sum: { amount: true }, where: { category: "SPA", time: timeFilter } }),
@@ -34,6 +40,7 @@ export async function getCashbookSummary(from: Date, to: Date): Promise<Cashbook
 
   const roomTienMat = roomTM._sum.amount ?? 0;
   const roomChuyenKhoan = roomCK._sum.amount ?? 0;
+  const roomChuyenKhoanTaiKhoanTien = roomCKTien._sum.amount ?? 0;
   const otaAmount = ota._sum.amount ?? 0;
   const cafeAmount = cafe._sum.amount ?? 0;
   const spaAmount = spa._sum.amount ?? 0;
@@ -50,6 +57,7 @@ export async function getCashbookSummary(from: Date, to: Date): Promise<Cashbook
     to,
     roomTienMat,
     roomChuyenKhoan,
+    roomChuyenKhoanTaiKhoanTien,
     ota: otaAmount,
     cafe: cafeAmount,
     spa: spaAmount,
