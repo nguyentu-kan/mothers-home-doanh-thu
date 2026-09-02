@@ -50,13 +50,13 @@ export default function ServiceForm({ menuItems }: { menuItems: MenuItem[] }) {
   }
 
   function onQuantityChange(value: string) {
-    const nextQuantity = parseInt(value || "1", 10);
+    const nextQuantity = value === "" ? 0 : parseInt(value, 10);
     setQuantity(nextQuantity);
     setAmount(nextQuantity * unitPrice);
   }
 
   function onUnitPriceChange(value: string) {
-    const nextUnitPrice = parseInt(value || "0", 10);
+    const nextUnitPrice = value === "" ? 0 : parseInt(value, 10);
     setUnitPrice(nextUnitPrice);
     setAmount(quantity * nextUnitPrice);
   }
@@ -169,7 +169,7 @@ export default function ServiceForm({ menuItems }: { menuItems: MenuItem[] }) {
             name="quantity"
             type="number"
             min={1}
-            value={quantity}
+            value={quantity === 0 ? "" : quantity}
             onChange={(e) => onQuantityChange(e.target.value)}
             className="field-input"
           />
@@ -183,7 +183,7 @@ export default function ServiceForm({ menuItems }: { menuItems: MenuItem[] }) {
             name="unitPrice"
             type="number"
             min={0}
-            value={unitPrice}
+            value={unitPrice === 0 ? "" : unitPrice}
             onChange={(e) => onUnitPriceChange(e.target.value)}
             className="field-input"
           />
@@ -199,8 +199,8 @@ export default function ServiceForm({ menuItems }: { menuItems: MenuItem[] }) {
           name="amount"
           type="number"
           min={0}
-          value={amount}
-          onChange={(e) => setAmount(parseInt(e.target.value || "0", 10))}
+          value={amount === 0 ? "" : amount}
+          onChange={(e) => setAmount(e.target.value === "" ? 0 : parseInt(e.target.value, 10))}
           className="field-input font-bold text-xl"
         />
       </div>

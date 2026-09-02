@@ -2,8 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { isManager } from "@/lib/permissions";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 import { revalidatePath } from "next/cache";
+import { startOfDay } from "date-fns";
 
 export type ServiceFormState =
   | { ok: true; message: string }
@@ -64,4 +66,30 @@ export async function createServiceRecordAction(
   revalidatePath("/so-thu-chi");
 
   return { ok: true, message: "Đã lưu!" };
+}
+
+// Cho tự xoá lượt ghi của chính mình trong ngày hôm nay (sửa sai bằng cách xoá rồi ghi lại) —
+// Quản lý/Chủ sở hữu được xoá bất kỳ lượt nào trong ngày để hỗ trợ nhân viên sửa lỗi.
+export async function deleteServiceRecordAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await requireSession();
+
+  const record = await prisma.serviceRecord.findUnique({ where: { id } });
+  if (!record) {
+    return { ok: false, error: "Không tìm thấy lượt ghi này." };
+  }
+  if (record.recordedByUserId !== session.userId && !isManager(session.role)) {
+    return { ok: false, error: "Bạn không có quyền xoá lượt ghi này." };
+  }
+  if (record.time < startOfDay(new Date())) {
+    return { ok: false, error: "Chỉ xoá được lượt ghi trong hôm nay." };
+  }
+
+  await prisma.serviceRecord.delete({ where: { id } });
+
+  await checkCashAndMaybeAlert();
+  revalidatePath("/ghi-nhan");
+  revalidatePath("/");
+  revalidatePath("/so-thu-chi");
+
+  return { ok: true };
 }
