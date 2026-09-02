@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  NHAN_VIEN
+  QUAN_LY
+  CHU_SO_HUU
+}
+
+enum ServiceCategory {
+  CA_PHE
+  SPA
+}
+
+// Hình thức thanh toán cho từng lượt dịch vụ (Chức năng 1)
+enum PaymentMethod {
+  GHI_PHONG
+  TIEN_MAT
+  CHUYEN_KHOAN
+}
+
+// Hình thức cho Thu phòng / Chi phí (không có "ghi phòng")
+enum CashMethod {
+  TIEN_MAT
+  CHUYEN_KHOAN
+}
+
+enum ShiftType {
+  SANG
+  CHIEU
+  DEM
+}
+
+enum OtaPlatform {
+  AGODA
+  CTRIP
+  BOOKING
+  KHAC
+}
+
+enum ExpenseCategory {
+  MAT_BANG
+  LUONG
+  MUA_HANG
+  KHAC
+}
+
+model User {
+  id                String   @id @default(cuid())
+  name              String
+  username          String   @unique
+  passwordHash      String
+  role              Role     @default(NHAN_VIEN)
+  canManageCashbook Boolean  @default(false)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  serviceRecords      ServiceRecord[]
+  roomRevenueEntries  RoomRevenueEntry[]
+  otaReceivables      OtaReceivable[]
+  expenses            Expense[]
+  handoversGiven      ShiftHandover[]     @relation("HandoverUser")
+  handoversReceived   ShiftHandover[]     @relation("ReceiverUser")
+}
+
+model MenuItem {
+  id        String          @id @default(cuid())
+  category  ServiceCategory
+  name      String
+  price     Int
+  active    Boolean         @default(true)
+  sortOrder Int             @default(0)
+
+  serviceRecords ServiceRecord[]
+}
+
+// Chức năng 1 — ghi nhận từng lượt dịch vụ Cà phê / Spa
+model ServiceRecord {
+  id            String          @id @default(cuid())
+  time          DateTime        @default(now())
+  category      ServiceCategory
+  roomOrGuest   String
+  content       String
+  quantity      Int             @default(1)
+  unitPrice     Int
+  amount        Int
+  paymentMethod PaymentMethod
+
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  recordedByUserId String
+  recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([time])
+  @@index([recordedByUserId])
+}
+
+// Sổ Thu Chi — Thu phòng (chị Tiên nhập)
+model RoomRevenueEntry {
+  id            String     @id @default(cuid())
+  time          DateTime   @default(now())
+  amount        Int
+  method        CashMethod
+  note          String?
+  attachmentUrl String?
+
+  recordedByUserId String
+  recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([time])
+}
+
+// Sổ Thu Chi — OTA công nợ (chị Tiên nhập, chỉ ghi tổng phát sinh/ngày)
+model OtaReceivable {
+  id            String      @id @default(cuid())
+  date          DateTime    @default(now())
+  platform      OtaPlatform
+  amount        Int
+  note          String?
+  attachmentUrl String?
+
+  recordedByUserId String
+  recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// Sổ Thu Chi — Chi phí (chị Tiên nhập)
+model Expense {
+  id            String          @id @default(cuid())
+  time          DateTime        @default(now())
+  category      ExpenseCategory
+  amount        Int
+  method        CashMethod
+  note          String
+  attachmentUrl String?
+
+  recordedByUserId String
+  recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([time])
+}
+
+// Chức năng 2 — Biên bản bàn giao ca
+model ShiftHandover {
+  id        String    @id @default(cuid())
+  date      DateTime  @default(now())
+  shiftType ShiftType
+
+  // Mốc bắt đầu tính gộp doanh thu/chi phí của ca này (= thời điểm xác nhận ca trước)
+  periodStart DateTime
+
+  handoverUserId String
+  handoverUser   User   @relation("HandoverUser", fields: [handoverUserId], references: [id])
+  receiverUserId String
+  receiverUser   User   @relation("ReceiverUser", fields: [receiverUserId], references: [id])
+
+  cashStart         Int
+  roomRevenue       Int  @default(0) // auto = Σ RoomRevenueEntry(TIEN_MAT) trong ca
+  cafeRevenue       Int  @default(0) // auto = Σ ServiceRecord(CA_PHE, TIEN_MAT) trong ca
+  spaRevenue        Int  @default(0) // auto = Σ ServiceRecord(SPA, TIEN_MAT) trong ca
+  otherExpense      Int  @default(0) // auto = Σ Expense(TIEN_MAT) trong ca
+  cashEndCalculated Int  @default(0) // auto = cashStart + roomRevenue + cafeRevenue + spaRevenue - otherExpense
+  cashEndCounted    Int?
+
+  pendingNotes String?
+
+  handoverConfirmed   Boolean   @default(false)
+  handoverConfirmedAt DateTime?
+  receiverConfirmed   Boolean   @default(false)
+  receiverConfirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// Ngưỡng cảnh báo tiền mặt + email nhận cảnh báo (key-value đơn giản)
+model AppSetting {
+  key   String @id
+  value String
+}
