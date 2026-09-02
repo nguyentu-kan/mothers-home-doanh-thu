@@ -38,6 +38,31 @@ const TYPE_LABELS: Record<DraftEntryType, string> = {
 
 const TYPE_OPTIONS = Object.entries(TYPE_LABELS) as [DraftEntryType, string][];
 
+// Ảnh chụp thẳng từ điện thoại thường 2-5MB — AI không cần độ phân giải gốc để đọc chữ viết tay,
+// nên nén nhỏ lại trước khi gửi giúp AI xử lý nhanh hơn và đỡ bị quá tải/timeout hơn.
+async function compressImage(file: File, maxDim = 1600, quality = 0.8): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+    if (width > maxDim || height > maxDim) {
+      const scale = maxDim / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 export default function QuickCaptureForm() {
   const router = useRouter();
   const [parseState, parseAction, parsePending] = useActionState<ParseState, FormData>(
@@ -47,6 +72,7 @@ export default function QuickCaptureForm() {
 
   const [text, setText] = useState("");
   const [images, setImages] = useState<File[]>([]);
+  const [compressing, setCompressing] = useState(false);
   const [listening, setListening] = useState(false);
   const [draft, setDraft] = useState<DraftEntry[] | null>(null);
   const [confirmPending, setConfirmPending] = useState(false);
@@ -203,10 +229,26 @@ export default function QuickCaptureForm() {
           type="file"
           accept="image/*"
           multiple
-          onChange={(e) => setImages(Array.from(e.target.files || []))}
+          onChange={async (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) {
+              setImages([]);
+              return;
+            }
+            setCompressing(true);
+            const compressed = await Promise.all(files.map((f) => compressImage(f)));
+            const dt = new DataTransfer();
+            compressed.forEach((f) => dt.items.add(f));
+            if (fileInputRef.current) fileInputRef.current.files = dt.files;
+            setImages(compressed);
+            setCompressing(false);
+          }}
           className="field-input"
         />
-        {images.length > 0 && <p className="text-sm text-slate-500 mt-1">Đã chọn {images.length} ảnh</p>}
+        {compressing && <p className="text-sm text-slate-500 mt-1">Đang nén ảnh...</p>}
+        {!compressing && images.length > 0 && (
+          <p className="text-sm text-slate-500 mt-1">Đã chọn {images.length} ảnh</p>
+        )}
       </div>
 
       <div>
@@ -237,7 +279,7 @@ export default function QuickCaptureForm() {
         <p className="rounded-xl bg-red-100 px-4 py-3 text-red-800 font-semibold">{parseState.error}</p>
       )}
 
-      <button type="submit" disabled={parsePending} className="btn-big bg-[#1B3A5C]">
+      <button type="submit" disabled={parsePending || compressing} className="btn-big bg-[#1B3A5C]">
         {parsePending ? "Đang đọc..." : "🤖 Đọc giúp tôi"}
       </button>
     </form>
