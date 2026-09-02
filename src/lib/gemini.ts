@@ -40,7 +40,8 @@ Ghi chú quan trọng — nhân viên khách sạn thường ghi tắt theo tìn
 - Dòng có tên sàn OTA (Agoda, Booking, Ctrip, Traveloka...) kèm số tiền cuối dòng — đây là khoản OTA công nợ (type "OTA"), amount = số tiền đó.
 - Chữ "cọc X" hoặc "đã cọc X" hoặc "nhận cọc X" — đây LÀ tiền đã thực nhận, trích xuất thành khoản Thu (amount = X). Nếu thấy "ck" gần đó thì dùng ROOM_CHUYEN_KHOAN, nếu thấy "TM" thì dùng ROOM_TIEN_MAT, không thấy gì thì mặc định ROOM_TIEN_MAT.
 - Chữ "còn thu Y" hoặc "còn lại Y" — đây là số tiền KHÁCH CÒN NỢ, CHƯA thu được, KHÔNG được tính là khoản Thu — bỏ qua, không trích xuất dòng này (trừ khi cùng dòng có chữ "đã TT"/"đã thanh toán" xác nhận đã thu đủ, lúc đó mới trích xuất Y là khoản Thu).
-- "in ck 700.000" hoặc "in TM 800.000" (ghi ngay lúc nhận phòng, kèm hình thức + số tiền) — đây LÀ khoản Thu phòng thật, trích xuất bình thường theo hình thức tương ứng.
+- "in ck 700.000" hoặc "in TM 800.000" (ghi ngay lúc nhận phòng, kèm hình thức + số tiền, KHÔNG có dòng "đã cọc"/"còn thu" nào theo sau nói về CÙNG khoản đó) — đây LÀ khoản Thu phòng thật, trích xuất bình thường theo hình thức tương ứng.
+- QUAN TRỌNG — tránh đếm trùng: nếu một dòng ghi tổng giá trị đặt phòng kèm hình thức (vd "ck 600.000") nhưng NGAY SAU ĐÓ có dòng "đã cọc X. Còn thu Y" giải thích rằng trong tổng đó chỉ mới thu X, còn nợ Y — thì con số tổng đầu dòng (600.000) CHỈ LÀ giá trị đặt phòng tham khảo, KHÔNG PHẢI tiền đã nhận, TUYỆT ĐỐI KHÔNG trích xuất số đó. Chỉ trích xuất X (khoản "đã cọc") là khoản Thu thật duy nhất của trường hợp này.
 - "đã TT" (đã thanh toán) đứng một mình không kèm số tiền mới — bỏ qua, không trích xuất (đã được tính từ trước).
 
 Chỉ trả về mảng JSON các khoản mục, không giải thích, không thêm chữ nào khác.`;
