@@ -175,6 +175,10 @@ export default function QuickCaptureForm() {
             className="field-input"
           />
         </div>
+        <p className="text-xs text-slate-400 -mt-2">
+          Áp dụng nhanh 1 lần cho mọi khoản — khoản nào cần ngày khác thì sửa riêng ô Ngày của khoản đó bên dưới,
+          không ảnh hưởng các khoản còn lại.
+        </p>
 
         {currentDraft.map((entry, i) => (
           <div key={i} className="card flex flex-col gap-3">
