@@ -77,8 +77,8 @@ async function HandoverForm({ currentUserId }: { currentUserId: string }) {
     }),
     getCashBaseline(),
   ]);
-  const { cafeRevenue, spaRevenue, roomRevenue, otherExpense } = await sumCashSince(periodStart);
-  const cashEndCalculated = baselineAmount + cafeRevenue + spaRevenue + roomRevenue - otherExpense;
+  const { cafeRevenue, spaRevenue, roomRevenue, otherExpense, ownerCashOut } = await sumCashSince(periodStart);
+  const cashEndCalculated = baselineAmount + cafeRevenue + spaRevenue + roomRevenue - otherExpense - ownerCashOut;
 
   return (
     <HandoverCreateForm
@@ -88,6 +88,7 @@ async function HandoverForm({ currentUserId }: { currentUserId: string }) {
       cafeRevenue={cafeRevenue}
       spaRevenue={spaRevenue}
       otherExpense={otherExpense}
+      ownerCashOut={ownerCashOut}
       cashEndCalculated={cashEndCalculated}
     />
   );

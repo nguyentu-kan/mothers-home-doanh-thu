@@ -122,7 +122,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       type: "Chuyển tiếp cho Cô Vân",
       description: t.note || "",
       amount: t.amount,
-      method: "Chuyển khoản",
+      method: t.method === "TIEN_MAT" ? "Tiền mặt" : "Chuyển khoản",
       recordedByName: t.recordedByUser.name,
       attachmentUrls: t.attachmentUrls,
     })),

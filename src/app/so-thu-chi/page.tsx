@@ -156,7 +156,11 @@ export default async function SoThuChiPage({
           </div>
         </div>
 
-        <OwnerTransferSection outstanding={ownerTransferBalance.outstanding} transfers={ownerTransferBalance.transfers} />
+        <OwnerTransferSection
+          outstanding={ownerTransferBalance.outstanding}
+          cashHandedOut={ownerTransferBalance.cashHandedOut}
+          transfers={ownerTransferBalance.transfers}
+        />
 
         <PendingReceivablesList
           items={pendingReceivables.map((p) => ({

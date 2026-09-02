@@ -34,7 +34,7 @@ export async function getCashBaseline(): Promise<{ baselineAmount: number; perio
 // - Chức năng 2: tính số cho ca đang mở (periodStart = mốc ca trước)
 // - Chức năng 3: tính tiền mặt tại quầy hiện tại (periodStart = baseline hiện tại)
 export async function sumCashSince(periodStart: Date, until: Date = new Date()) {
-  const [cafeSum, spaSum, roomSum, expenseSum] = await Promise.all([
+  const [cafeSum, spaSum, roomSum, expenseSum, ownerCashOutSum] = await Promise.all([
     prisma.serviceRecord.aggregate({
       _sum: { amount: true },
       where: { paymentMethod: "TIEN_MAT", category: "CA_PHE", time: { gt: periodStart, lte: until } },
@@ -51,19 +51,26 @@ export async function sumCashSince(periodStart: Date, until: Date = new Date()) 
       _sum: { amount: true },
       where: { method: "TIEN_MAT", time: { gt: periodStart, lte: until } },
     }),
+    prisma.ownerTransfer.aggregate({
+      _sum: { amount: true },
+      where: { method: "TIEN_MAT", time: { gt: periodStart, lte: until } },
+    }),
   ]);
   return {
     cafeRevenue: cafeSum._sum.amount ?? 0,
     spaRevenue: spaSum._sum.amount ?? 0,
     roomRevenue: roomSum._sum.amount ?? 0,
     otherExpense: expenseSum._sum.amount ?? 0,
+    // Tiền mặt đưa trực tiếp cho Cô Vân — không phải chi phí kinh doanh (không tính vào Tổng chi/
+    // Chênh lệch Thu-Chi), nhưng vẫn phải trừ khỏi Tiền mặt tại quầy vì tiền đã rời khỏi quầy thật.
+    ownerCashOut: ownerCashOutSum._sum.amount ?? 0,
   };
 }
 
 export async function computeCashOnHand(): Promise<{ amount: number; periodStart: Date }> {
   const { baselineAmount, periodStart } = await getCashBaseline();
-  const { cafeRevenue, spaRevenue, roomRevenue, otherExpense } = await sumCashSince(periodStart);
-  const amount = baselineAmount + cafeRevenue + spaRevenue + roomRevenue - otherExpense;
+  const { cafeRevenue, spaRevenue, roomRevenue, otherExpense, ownerCashOut } = await sumCashSince(periodStart);
+  const amount = baselineAmount + cafeRevenue + spaRevenue + roomRevenue - otherExpense - ownerCashOut;
   return { amount, periodStart };
 }
 

@@ -8,16 +8,21 @@ type Transfer = {
   id: string;
   time: Date;
   amount: number;
+  method: "TIEN_MAT" | "CHUYEN_KHOAN";
   note: string | null;
   attachmentUrls: string[];
   recordedByName: string;
 };
 
+const METHOD_LABEL: Record<Transfer["method"], string> = { TIEN_MAT: "💵 Tiền mặt", CHUYEN_KHOAN: "🏦 Chuyển khoản" };
+
 export default function OwnerTransferSection({
   outstanding,
+  cashHandedOut,
   transfers,
 }: {
   outstanding: number;
+  cashHandedOut: number;
   transfers: Transfer[];
 }) {
   const [addState, addAction, addPending] = useActionState<OwnerTransferFormState, FormData>(
@@ -25,6 +30,7 @@ export default function OwnerTransferSection({
     undefined
   );
   const [showAddForm, setShowAddForm] = useState(false);
+  const [method, setMethod] = useState<"CHUYEN_KHOAN" | "TIEN_MAT">("CHUYEN_KHOAN");
   const [attachmentCount, setAttachmentCount] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -59,11 +65,14 @@ export default function OwnerTransferSection({
 
       {outstanding > 0 ? (
         <div className="rounded-xl bg-amber-100 dark:bg-amber-900/40 px-4 py-3 flex justify-between items-center mb-2">
-          <span className="font-semibold text-amber-900 dark:text-amber-200">Còn cần chuyển</span>
+          <span className="font-semibold text-amber-900 dark:text-amber-200">Còn cần chuyển khoản</span>
           <span className="font-extrabold text-amber-900 dark:text-amber-200">{formatVnd(outstanding)}</span>
         </div>
       ) : (
-        <p className="text-sm text-emerald-700 mb-2">Đã chuyển đủ, không còn thiếu.</p>
+        <p className="text-sm text-emerald-700 mb-2">Đã chuyển khoản đủ, không còn thiếu.</p>
+      )}
+      {cashHandedOut > 0 && (
+        <p className="text-xs text-slate-400 mb-2">💵 Đã đưa {formatVnd(cashHandedOut)} tiền mặt cho Cô Vân (không tính vào số trên).</p>
       )}
 
       {showAddForm && (
@@ -71,10 +80,36 @@ export default function OwnerTransferSection({
           action={addAction}
           className="flex flex-col gap-2 mb-3 pb-3 border-b border-black/10 dark:border-white/10"
         >
-          <input name="amount" type="number" min={1} required placeholder="Số tiền đã chuyển" className="field-input" />
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMethod("CHUYEN_KHOAN")}
+              className={`rounded-xl py-2.5 font-semibold text-sm ${method === "CHUYEN_KHOAN" ? "bg-[#1B3A5C] text-white" : "bg-slate-200 dark:bg-white/10"}`}
+            >
+              🏦 Chuyển khoản
+            </button>
+            <button
+              type="button"
+              onClick={() => setMethod("TIEN_MAT")}
+              className={`rounded-xl py-2.5 font-semibold text-sm ${method === "TIEN_MAT" ? "bg-[#1B3A5C] text-white" : "bg-slate-200 dark:bg-white/10"}`}
+            >
+              💵 Tiền mặt
+            </button>
+          </div>
+          <input type="hidden" name="method" value={method} />
+          <input
+            name="amount"
+            type="number"
+            min={1}
+            required
+            placeholder={method === "TIEN_MAT" ? "Số tiền mặt đã đưa" : "Số tiền đã chuyển khoản"}
+            className="field-input"
+          />
           <input name="note" placeholder="Ghi chú (không bắt buộc)" className="field-input" />
           <div>
-            <label className="field-label text-sm">Ảnh chuyển khoản (chọn được nhiều ảnh)</label>
+            <label className="field-label text-sm">
+              {method === "TIEN_MAT" ? "Ảnh (không bắt buộc)" : "Ảnh chuyển khoản (chọn được nhiều ảnh)"}
+            </label>
             <input
               name="attachments"
               type="file"
@@ -85,6 +120,11 @@ export default function OwnerTransferSection({
             />
             {attachmentCount > 0 && <p className="text-sm text-slate-500 mt-1">Đã chọn {attachmentCount} ảnh</p>}
           </div>
+          {method === "TIEN_MAT" && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Khoản này sẽ trừ thẳng vào "Tiền mặt tại quầy" — không tính vào Chi phí/Chênh lệch Thu-Chi.
+            </p>
+          )}
           {addState?.error && <p className="text-sm text-red-700 font-semibold">{addState.error}</p>}
           <button type="submit" disabled={addPending} className="rounded-xl py-2.5 font-semibold bg-[#1B3A5C] text-white">
             {addPending ? "Đang lưu..." : "Lưu"}
@@ -107,7 +147,9 @@ export default function OwnerTransferSection({
               {transfers.map((t) => (
                 <div key={t.id} className="flex items-center justify-between gap-2 py-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{t.note || "(không ghi chú)"}</div>
+                    <div className="text-sm font-semibold truncate">
+                      {METHOD_LABEL[t.method]} — {t.note || "(không ghi chú)"}
+                    </div>
                     <div className="text-xs text-slate-500">
                       {formatDateTimeVn(t.time)} — {t.recordedByName}
                       {t.attachmentUrls.length > 0 && (

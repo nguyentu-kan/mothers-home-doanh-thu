@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { canManageCashbook, isManager } from "@/lib/permissions";
 import { uploadAttachments } from "@/lib/supabase";
+import { checkCashAndMaybeAlert } from "@/lib/cash";
 import { startOfDay } from "date-fns";
 
 async function requireCashbookAccess() {
@@ -17,9 +18,10 @@ async function requireCashbookAccess() {
 
 export type OwnerTransferFormState = { error: string } | undefined;
 
-// Ghi 1 lần Ngọc Tiên chuyển tiền (đã nhận vào TK cá nhân) lại cho Cô Vân, kèm ảnh chuyển khoản
-// làm bằng chứng — không tính là khoản Thu/Chi (tiền này đã tính vào Thu phòng lúc khách chuyển rồi),
-// chỉ dùng để trừ vào số dư "còn cần chuyển".
+// Ghi 1 lần Ngọc Tiên đưa/chuyển tiền cho Cô Vân — CHUYEN_KHOAN (tiền khách đã chuyển khoản vào
+// TK cá nhân Tiên, nay chuyển trả lại Cô Vân qua ngân hàng, kèm ảnh làm bằng chứng) hoặc TIEN_MAT
+// (đưa trực tiếp tiền mặt tại quầy). Không tính là khoản Thu/Chi thật — CHUYEN_KHOAN chỉ trừ vào
+// số dư "còn cần chuyển", TIEN_MAT chỉ trừ vào "Tiền mặt tại quầy" (xem lib/cash.ts).
 export async function addOwnerTransferAction(
   _prevState: OwnerTransferFormState,
   formData: FormData
@@ -27,21 +29,29 @@ export async function addOwnerTransferAction(
   const session = await requireCashbookAccess();
 
   const amount = parseInt(String(formData.get("amount") || "0"), 10);
+  const method = String(formData.get("method") || "CHUYEN_KHOAN");
   const note = String(formData.get("note") || "").trim() || null;
   const attachments = formData.getAll("attachments").filter((f): f is File => f instanceof File && f.size > 0);
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Vui lòng nhập số tiền hợp lệ." };
   }
+  if (method !== "TIEN_MAT" && method !== "CHUYEN_KHOAN") {
+    return { error: "Hình thức không hợp lệ." };
+  }
 
   const attachmentUrls = await uploadAttachments(attachments);
 
   await prisma.ownerTransfer.create({
-    data: { amount, note, attachmentUrls, recordedByUserId: session.userId },
+    data: { amount, method, note, attachmentUrls, recordedByUserId: session.userId },
   });
 
+  if (method === "TIEN_MAT") {
+    await checkCashAndMaybeAlert();
+  }
   revalidatePath("/so-thu-chi");
   revalidatePath("/bao-cao");
+  revalidatePath("/ban-giao-ca");
   return undefined;
 }
 
@@ -61,5 +71,6 @@ export async function deleteOwnerTransferAction(id: string): Promise<{ ok: true 
   await prisma.ownerTransfer.delete({ where: { id } });
   revalidatePath("/so-thu-chi");
   revalidatePath("/bao-cao");
+  revalidatePath("/ban-giao-ca");
   return { ok: true };
 }

@@ -82,6 +82,9 @@ export async function confirmQuickCaptureAction(
         return prisma.ownerTransfer.create({
           data: {
             amount: entry.amount,
+            // AI chỉ nhận diện CHUYEN_CHO_CO_VAN từ ảnh chụp màn hình chuyển khoản, nên luôn là
+            // CHUYEN_KHOAN — tiền mặt đưa tay thì Tiên ghi tay qua mục "+ Ghi đã chuyển".
+            method: "CHUYEN_KHOAN",
             note: entry.note || null,
             attachmentUrls,
             time,

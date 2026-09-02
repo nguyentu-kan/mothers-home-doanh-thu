@@ -11,6 +11,7 @@ type Props = {
   cafeRevenue: number;
   spaRevenue: number;
   otherExpense: number;
+  ownerCashOut: number;
   cashEndCalculated: number;
 };
 
@@ -38,6 +39,7 @@ export default function HandoverCreateForm(props: Props) {
         <SummaryRow label="+ Thu Cà phê/Nước" value={props.cafeRevenue} />
         <SummaryRow label="+ Thu Spa" value={props.spaRevenue} />
         <SummaryRow label="− Chi phí (tiền mặt)" value={-props.otherExpense} />
+        {props.ownerCashOut > 0 && <SummaryRow label="− Đã đưa tiền mặt cho Cô Vân" value={-props.ownerCashOut} />}
         <SummaryRow label="= Tiền mặt cuối ca" value={props.cashEndCalculated} bold />
       </div>
 

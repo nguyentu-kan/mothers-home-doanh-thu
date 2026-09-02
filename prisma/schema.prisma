@@ -167,13 +167,18 @@ model PendingReceivable {
   @@index([status])
 }
 
-// Mỗi lần Ngọc Tiên chuyển tiền (đã nhận vào TK cá nhân của mình) lại cho Cô Vân — kèm ảnh chuyển
-// khoản làm bằng chứng, để trả lời được ngay khi Cô Vân hỏi "đã chuyển chưa" mà không cần lục Zalo.
-// Số dư "còn cần chuyển" = tổng RoomRevenueEntry(transferAccount=TIEN) trừ tổng OwnerTransfer này.
+// Mỗi lần Ngọc Tiên đưa/chuyển tiền cho Cô Vân — 2 trường hợp:
+// - CHUYEN_KHOAN: tiền khách đã chuyển khoản vào TK cá nhân Tiên, nay chuyển trả lại Cô Vân qua
+//   ngân hàng — có ảnh chuyển khoản làm bằng chứng. Số dư "còn cần chuyển" chỉ tính loại này
+//   (= tổng RoomRevenueEntry(transferAccount=TIEN) trừ tổng OwnerTransfer loại CHUYEN_KHOAN).
+// - TIEN_MAT: tiền mặt tại quầy đưa trực tiếp cho Cô Vân (không phải chi phí kinh doanh) — chỉ
+//   dùng để trừ vào "Tiền mặt tại quầy" (xem sumCashSince trong lib/cash.ts), không ảnh hưởng
+//   Tổng chi/Chênh lệch Thu-Chi vì đây không phải một khoản chi thật.
 model OwnerTransfer {
-  id            String   @id @default(cuid())
-  time          DateTime @default(now())
+  id            String     @id @default(cuid())
+  time          DateTime   @default(now())
   amount        Int
+  method        CashMethod @default(CHUYEN_KHOAN)
   note          String?
   attachmentUrls String[] @default([])
 
@@ -239,7 +244,8 @@ model ShiftHandover {
   cafeRevenue       Int  @default(0) // auto = Σ ServiceRecord(CA_PHE, TIEN_MAT) trong ca
   spaRevenue        Int  @default(0) // auto = Σ ServiceRecord(SPA, TIEN_MAT) trong ca
   otherExpense      Int  @default(0) // auto = Σ Expense(TIEN_MAT) trong ca
-  cashEndCalculated Int  @default(0) // auto = cashStart + roomRevenue + cafeRevenue + spaRevenue - otherExpense
+  ownerCashOut      Int  @default(0) // auto = Σ OwnerTransfer(TIEN_MAT) trong ca — tiền mặt đã đưa Cô Vân
+  cashEndCalculated Int  @default(0) // auto = cashStart + roomRevenue + cafeRevenue + spaRevenue - otherExpense - ownerCashOut
   cashEndCounted    Int?
 
   pendingNotes String?

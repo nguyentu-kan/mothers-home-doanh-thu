@@ -40,8 +40,8 @@ export async function createHandoverAction(
   }
 
   const { baselineAmount, periodStart } = await getCashBaseline();
-  const { cafeRevenue, spaRevenue, roomRevenue, otherExpense } = await sumCashSince(periodStart);
-  const cashEndCalculated = baselineAmount + cafeRevenue + spaRevenue + roomRevenue - otherExpense;
+  const { cafeRevenue, spaRevenue, roomRevenue, otherExpense, ownerCashOut } = await sumCashSince(periodStart);
+  const cashEndCalculated = baselineAmount + cafeRevenue + spaRevenue + roomRevenue - otherExpense - ownerCashOut;
 
   await prisma.shiftHandover.create({
     data: {
@@ -54,6 +54,7 @@ export async function createHandoverAction(
       cafeRevenue,
       spaRevenue,
       otherExpense,
+      ownerCashOut,
       cashEndCalculated,
       cashEndCounted,
       pendingNotes,

@@ -175,9 +175,10 @@ export async function generateBackupZip(generatedByName: string): Promise<Uint8A
   zip.file(
     "chuyen-tiep-co-van.csv",
     toCsv(
-      ["Thời gian", "Số tiền", "Ghi chú", "Người ghi", "Số ảnh đính kèm"],
+      ["Thời gian", "Hình thức", "Số tiền", "Ghi chú", "Người ghi", "Số ảnh đính kèm"],
       ownerTransfers.map((t) => [
         formatDateTimeVn(t.time),
+        t.method === "TIEN_MAT" ? "Tiền mặt" : "Chuyển khoản",
         t.amount,
         t.note || "",
         t.recordedByUser.name,

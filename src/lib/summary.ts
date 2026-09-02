@@ -209,10 +209,12 @@ export type OwnerTransferBalance = {
   received: number;
   forwarded: number;
   outstanding: number;
+  cashHandedOut: number;
   transfers: {
     id: string;
     time: Date;
     amount: number;
+    method: "TIEN_MAT" | "CHUYEN_KHOAN";
     note: string | null;
     attachmentUrls: string[];
     recordedByName: string;
@@ -220,7 +222,9 @@ export type OwnerTransferBalance = {
 };
 
 // Số dư "còn cần chuyển cho Cô Vân" HIỆN TẠI — không giới hạn theo kỳ (giống tiền mặt tại quầy):
-// tổng tiền khách chuyển vào TK Tiên từ trước đến giờ, trừ tổng Ngọc Tiên đã chuyển tiếp cho Cô Vân.
+// tổng tiền khách chuyển vào TK Tiên từ trước đến giờ, trừ tổng đã chuyển khoản trả lại Cô Vân.
+// Chỉ tính các OwnerTransfer loại CHUYEN_KHOAN vào "forwarded" — tiền mặt đưa trực tiếp (TIEN_MAT)
+// là một nghĩa vụ khác (từ quầy, không phải từ TK Tiên), xem riêng ở cashHandedOut.
 export async function getOwnerTransferBalance(): Promise<OwnerTransferBalance> {
   const [receivedAgg, transfers] = await Promise.all([
     prisma.roomRevenueEntry.aggregate({ _sum: { amount: true }, where: { transferAccount: "TIEN" } }),
@@ -231,16 +235,23 @@ export async function getOwnerTransferBalance(): Promise<OwnerTransferBalance> {
   ]);
 
   const received = receivedAgg._sum.amount ?? 0;
-  const forwarded = transfers.reduce((sum, t) => sum + t.amount, 0);
+  const forwarded = transfers
+    .filter((t) => t.method === "CHUYEN_KHOAN")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const cashHandedOut = transfers
+    .filter((t) => t.method === "TIEN_MAT")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   return {
     received,
     forwarded,
     outstanding: received - forwarded,
+    cashHandedOut,
     transfers: transfers.map((t) => ({
       id: t.id,
       time: t.time,
       amount: t.amount,
+      method: t.method,
       note: t.note,
       attachmentUrls: t.attachmentUrls,
       recordedByName: t.recordedByUser.name,

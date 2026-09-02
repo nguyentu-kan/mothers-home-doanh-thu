@@ -128,17 +128,20 @@ export default async function BaoCaoInPage({
           <div className="mt-5 border-t border-black/10 pt-3">
             <div className="font-bold text-[#1B3A5C] mb-1">Chuyển tiếp cho Cô Vân</div>
             <p className="text-sm mb-1">
-              Đã nhận vào TK Tiên: {formatVnd(ownerTransferBalance.received)} — Đã chuyển:{" "}
-              {formatVnd(ownerTransferBalance.forwarded)} — Còn cần chuyển:{" "}
+              Đã nhận vào TK Tiên: {formatVnd(ownerTransferBalance.received)} — Đã chuyển khoản:{" "}
+              {formatVnd(ownerTransferBalance.forwarded)} — Còn cần chuyển khoản:{" "}
               <b>{formatVnd(ownerTransferBalance.outstanding)}</b>
             </p>
+            {ownerTransferBalance.cashHandedOut > 0 && (
+              <p className="text-sm mb-1">💵 Đã đưa tiền mặt cho Cô Vân: {formatVnd(ownerTransferBalance.cashHandedOut)}</p>
+            )}
             {ownerTransferBalance.transfers.length > 0 && (
               <table className="w-full text-sm">
                 <tbody>
                   {ownerTransferBalance.transfers.map((t) => (
                     <tr key={t.id}>
                       <td className="py-0.5">
-                        {formatDateVn(t.time)} — {t.note || "(không ghi chú)"} — {t.recordedByName}
+                        {t.method === "TIEN_MAT" ? "💵" : "🏦"} {formatDateVn(t.time)} — {t.note || "(không ghi chú)"} — {t.recordedByName}
                       </td>
                       <td className="py-0.5 text-right font-semibold">{formatVnd(t.amount)}</td>
                     </tr>
