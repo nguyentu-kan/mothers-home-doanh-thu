@@ -4,6 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { parseQuickCaptureAction, confirmQuickCaptureAction, type ParseState } from "./actions";
 import type { DraftEntry, DraftEntryType } from "@/lib/gemini";
+import { formatVnd, formatDateVn } from "@/lib/format";
 
 // Web Speech API chưa có sẵn trong TypeScript lib chuẩn — khai báo tối thiểu phần dùng tới.
 type SpeechRecognitionResultLike = { transcript: string };
@@ -39,6 +40,44 @@ const TYPE_LABELS: Record<DraftEntryType, string> = {
 };
 
 const TYPE_OPTIONS = Object.entries(TYPE_LABELS) as [DraftEntryType, string][];
+
+type DateSummary = {
+  date: string;
+  tienMat: number;
+  chuyenKhoan: number;
+  ota: number;
+  conThu: number;
+  chuyenCoVan: number;
+  chi: number;
+  thu: number;
+  chenhLech: number;
+};
+
+// Gộp theo ngày để khi ghi bù ngày cũ, thấy ngay tổng thu/chi của ĐÚNG ngày đó trước khi lưu —
+// cùng công thức với báo cáo chính thức (Thu = Tiền mặt + Chuyển khoản + OTA, không tính Còn phải
+// thu/Chuyển cho Cô Vân vì đó là số dư riêng, chưa phải tiền thu/chi thật trong ngày).
+function summarizeByDate(entries: DraftEntry[], todayStr: string): DateSummary[] {
+  const map = new Map<string, DateSummary>();
+  for (const e of entries) {
+    const date = e.date || todayStr;
+    let s = map.get(date);
+    if (!s) {
+      s = { date, tienMat: 0, chuyenKhoan: 0, ota: 0, conThu: 0, chuyenCoVan: 0, chi: 0, thu: 0, chenhLech: 0 };
+      map.set(date, s);
+    }
+    if (e.type === "ROOM_TIEN_MAT") s.tienMat += e.amount;
+    else if (e.type === "ROOM_CHUYEN_KHOAN") s.chuyenKhoan += e.amount;
+    else if (e.type === "OTA") s.ota += e.amount;
+    else if (e.type === "CON_THU") s.conThu += e.amount;
+    else if (e.type === "CHUYEN_CHO_CO_VAN") s.chuyenCoVan += e.amount;
+    else s.chi += e.amount;
+  }
+  for (const s of map.values()) {
+    s.thu = s.tienMat + s.chuyenKhoan + s.ota;
+    s.chenhLech = s.thu - s.chi;
+  }
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
 
 // Ảnh chụp thẳng từ điện thoại thường 2-5MB — AI không cần độ phân giải gốc để đọc chữ viết tay,
 // nên nén nhỏ lại trước khi gửi giúp AI xử lý nhanh hơn và đỡ bị quá tải/timeout hơn.
@@ -246,6 +285,47 @@ export default function QuickCaptureForm() {
         <button type="button" onClick={addDraftEntry} className="rounded-xl py-3 font-semibold bg-slate-200 dark:bg-white/10">
           + Thêm dòng
         </button>
+
+        <div className="card flex flex-col gap-3">
+          <div className="font-bold text-[#1B3A5C] dark:text-white">Tổng kiểm tra trước khi lưu</div>
+          {summarizeByDate(currentDraft, todayStr).map((s) => (
+            <div key={s.date} className="flex flex-col gap-1 border-t border-black/10 dark:border-white/10 pt-2 first:border-0 first:pt-0">
+              <div className="text-sm font-semibold text-slate-500">Ngày {formatDateVn(new Date(s.date))}</div>
+              <div className="flex justify-between text-sm">
+                <span>Thu tiền mặt</span>
+                <span>{formatVnd(s.tienMat)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Thu chuyển khoản</span>
+                <span>{formatVnd(s.chuyenKhoan)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>OTA công nợ</span>
+                <span>{formatVnd(s.ota)}</span>
+              </div>
+              {s.conThu > 0 && (
+                <div className="flex justify-between text-sm text-amber-700 dark:text-amber-400">
+                  <span>Còn phải thu (chưa tính vào chênh lệch)</span>
+                  <span>{formatVnd(s.conThu)}</span>
+                </div>
+              )}
+              {s.chuyenCoVan > 0 && (
+                <div className="flex justify-between text-sm text-slate-500">
+                  <span>🔁 Chuyển cho Cô Vân (không tính vào chênh lệch)</span>
+                  <span>{formatVnd(s.chuyenCoVan)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span>Tổng chi</span>
+                <span>{formatVnd(s.chi)}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>Chênh lệch (Thu − Chi)</span>
+                <span className={s.chenhLech < 0 ? "text-red-600" : "text-emerald-600"}>{formatVnd(s.chenhLech)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {confirmError && <p className="rounded-xl bg-red-100 px-4 py-3 text-red-800 font-semibold">{confirmError}</p>}
 
