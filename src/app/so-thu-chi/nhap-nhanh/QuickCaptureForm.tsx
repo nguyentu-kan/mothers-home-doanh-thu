@@ -202,7 +202,6 @@ export default function QuickCaptureForm() {
           name="images"
           type="file"
           accept="image/*"
-          capture="environment"
           multiple
           onChange={(e) => setImages(Array.from(e.target.files || []))}
           className="field-input"

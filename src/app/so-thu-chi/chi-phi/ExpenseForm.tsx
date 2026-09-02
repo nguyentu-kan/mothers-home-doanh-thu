@@ -78,7 +78,6 @@ export default function ExpenseForm() {
           name="attachment"
           type="file"
           accept="image/*,.pdf"
-          capture="environment"
           className="field-input"
         />
       </div>

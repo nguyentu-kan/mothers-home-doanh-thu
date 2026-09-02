@@ -53,7 +53,6 @@ export default function RoomRevenueForm() {
           name="attachment"
           type="file"
           accept="image/*,.pdf"
-          capture="environment"
           className="field-input"
         />
       </div>
