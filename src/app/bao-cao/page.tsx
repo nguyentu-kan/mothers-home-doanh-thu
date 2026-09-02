@@ -60,6 +60,10 @@ export default async function BaoCaoPage({
             🗂️ Tải ảnh chứng từ (ZIP)
           </a>
         </div>
+        <p className="text-xs text-slate-400 text-center -mt-2">
+          File tải về sẽ tự lưu vào mục &quot;Tải xuống&quot; (Downloads) hoặc app &quot;Files&quot; trên điện thoại/máy
+          tính — mở app đó lên là thấy.
+        </p>
 
         <div className="card">
           <div className="text-sm text-slate-500 mb-2">

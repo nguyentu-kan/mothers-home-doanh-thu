@@ -129,6 +129,14 @@ export default function QuickCaptureForm() {
     });
   }
 
+  // Cả loạt ảnh thường là cùng 1 ngày (ghi bù ngày cũ) — cho sửa 1 lần thay vì từng dòng một.
+  function setAllDates(date: string) {
+    setDraft((prev) => {
+      const base = prev ?? (parseState?.ok ? parseState.entries : []);
+      return base.map((e) => ({ ...e, date }));
+    });
+  }
+
   async function handleConfirm() {
     if (!currentDraft || currentDraft.length === 0) return;
     setConfirmPending(true);
@@ -158,6 +166,15 @@ export default function QuickCaptureForm() {
           ⚠️ Nếu ảnh là sổ tay của ngày cũ (ghi bù), nhớ kiểm tra lại ô Ngày của từng khoản — mặc định là hôm nay
           nếu AI không đọc được ngày.
         </p>
+
+        <div className="card flex items-center gap-3">
+          <label className="field-label text-sm whitespace-nowrap mb-0">Đặt cùng 1 ngày cho tất cả</label>
+          <input
+            type="date"
+            onChange={(e) => e.target.value && setAllDates(e.target.value)}
+            className="field-input"
+          />
+        </div>
 
         {currentDraft.map((entry, i) => (
           <div key={i} className="card flex flex-col gap-3">
