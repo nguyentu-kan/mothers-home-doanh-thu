@@ -167,10 +167,10 @@ export default function QuickCaptureForm() {
               ))}
             </select>
             <input
-              type="number"
-              min={0}
-              value={entry.amount}
-              onChange={(e) => updateDraftEntry(i, { amount: parseInt(e.target.value || "0", 10) })}
+              type="text"
+              inputMode="numeric"
+              value={entry.amount ? entry.amount.toLocaleString("vi-VN") : ""}
+              onChange={(e) => updateDraftEntry(i, { amount: parseInt(e.target.value.replace(/\D/g, "") || "0", 10) })}
               className="field-input font-bold"
               placeholder="Số tiền"
             />
