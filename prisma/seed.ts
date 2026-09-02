@@ -33,7 +33,7 @@ async function main() {
     name: "Ngọc Tiên",
     username: "tien",
     password: "1234",
-    role: "NHAN_VIEN",
+    role: "QUAN_LY",
     canManageCashbook: true,
   });
   await upsertUser({ name: "Chú Toàn", username: "toan", password: "1234", role: "NHAN_VIEN" });
