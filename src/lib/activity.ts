@@ -34,7 +34,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
   const timeFilter = { gte: from, lte: to };
   const userFilter = userId ? { recordedByUserId: userId } : {};
 
-  const [services, rooms, otas, expenses] = await Promise.all([
+  const [services, rooms, otas, expenses, pendingReceivables] = await Promise.all([
     prisma.serviceRecord.findMany({
       where: { time: timeFilter, ...userFilter },
       include: { recordedByUser: true },
@@ -51,6 +51,11 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       orderBy: { date: "desc" },
     }),
     prisma.expense.findMany({
+      where: { time: timeFilter, ...userFilter },
+      include: { recordedByUser: true },
+      orderBy: { time: "desc" },
+    }),
+    prisma.pendingReceivable.findMany({
       where: { time: timeFilter, ...userFilter },
       include: { recordedByUser: true },
       orderBy: { time: "desc" },
@@ -97,6 +102,15 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: PAYMENT_LABEL[e.method],
       recordedByName: e.recordedByUser.name,
       attachmentUrls: e.attachmentUrls,
+    })),
+    ...pendingReceivables.map((p) => ({
+      time: p.time,
+      type: "Còn phải thu",
+      description: (p.note || "") + (p.status === "COLLECTED" ? " (đã thu)" : " (chưa thu)"),
+      amount: p.amount,
+      method: p.status === "COLLECTED" ? "Đã thu" : "Chưa thu",
+      recordedByName: p.recordedByUser.name,
+      attachmentUrls: [],
     })),
   ];
 

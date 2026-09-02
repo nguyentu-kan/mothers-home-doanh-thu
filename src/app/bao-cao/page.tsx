@@ -3,7 +3,7 @@ import Header from "@/components/Header";
 import ReportTabs from "@/components/ReportTabs";
 import RevenueChart from "@/components/RevenueChart";
 import { getPeriodRange, getPreviousPeriodRange, computeChangePercent, type PeriodKey } from "@/lib/period";
-import { getCashbookSummary, getDailyRevenueSeries, getStaffSummary } from "@/lib/summary";
+import { getCashbookSummary, getDailyRevenueSeries, getStaffSummary, getPendingReceivablesSummary } from "@/lib/summary";
 import { getCashLimitBreaches } from "@/lib/cash";
 import { formatVnd, formatDateVn, formatDateTimeVn } from "@/lib/format";
 import PeriodTabs from "@/components/PeriodTabs";
@@ -23,12 +23,13 @@ export default async function BaoCaoPage({
   const { from, to } = getPeriodRange(period, fromParam, toParam);
   const prevRange = getPreviousPeriodRange(period, from, to);
 
-  const [summary, series, prevSummary, breaches, staff] = await Promise.all([
+  const [summary, series, prevSummary, breaches, staff, pendingReceivables] = await Promise.all([
     getCashbookSummary(from, to),
     getDailyRevenueSeries(from, to),
     getCashbookSummary(prevRange.from, prevRange.to),
     getCashLimitBreaches(from, to),
     getStaffSummary(from, to),
+    getPendingReceivablesSummary(),
   ]);
 
   const thuChangePct = computeChangePercent(summary.totalThu, prevSummary.totalThu);
@@ -115,6 +116,30 @@ export default async function BaoCaoPage({
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="font-bold text-[#1B3A5C] dark:text-white mb-2">📋 Còn phải thu (hiện tại)</div>
+          {pendingReceivables.count === 0 ? (
+            <p className="text-sm text-emerald-700">Không có khoản nào đang chờ thu.</p>
+          ) : (
+            <>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
+                {pendingReceivables.count} khoản, tổng{" "}
+                <span className="font-bold text-amber-700 dark:text-amber-400">{formatVnd(pendingReceivables.total)}</span>
+              </p>
+              <div className="flex flex-col gap-1">
+                {pendingReceivables.items.map((i) => (
+                  <div key={i.id} className="flex justify-between text-sm rounded-lg px-3 py-2 bg-amber-100 dark:bg-amber-900/30">
+                    <span>
+                      {formatDateVn(i.time)} — {i.note || "(không ghi chú)"} — {i.recordedByName}
+                    </span>
+                    <span className="font-semibold">{formatVnd(i.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import PrintButton from "@/components/PrintButton";
 import { getPeriodRange, getPreviousPeriodRange, computeChangePercent, type PeriodKey } from "@/lib/period";
-import { getCashbookSummary, getStaffSummary } from "@/lib/summary";
+import { getCashbookSummary, getStaffSummary, getPendingReceivablesSummary } from "@/lib/summary";
 import { getCashLimitBreaches } from "@/lib/cash";
 import { getSession } from "@/lib/session";
 import { formatVnd, formatDateVn, formatDateTimeVn } from "@/lib/format";
@@ -20,12 +20,13 @@ export default async function BaoCaoInPage({
   const { from, to } = getPeriodRange(period, fromParam, toParam);
   const prevRange = getPreviousPeriodRange(period, from, to);
 
-  const [session, summary, prevSummary, breaches, staff] = await Promise.all([
+  const [session, summary, prevSummary, breaches, staff, pendingReceivables] = await Promise.all([
     getSession(),
     getCashbookSummary(from, to),
     getCashbookSummary(prevRange.from, prevRange.to),
     getCashLimitBreaches(from, to),
     getStaffSummary(from, to),
+    getPendingReceivablesSummary(),
   ]);
 
   const thuChangePct = computeChangePercent(summary.totalThu, prevSummary.totalThu);
@@ -95,6 +96,31 @@ export default async function BaoCaoInPage({
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+
+          <div className="mt-5 border-t border-black/10 pt-3">
+            <div className="font-bold text-[#1B3A5C] mb-1">Còn phải thu (hiện tại)</div>
+            {pendingReceivables.count === 0 ? (
+              <p className="text-sm">Không có khoản nào đang chờ thu.</p>
+            ) : (
+              <>
+                <p className="text-sm mb-1">
+                  {pendingReceivables.count} khoản, tổng <b>{formatVnd(pendingReceivables.total)}</b>
+                </p>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {pendingReceivables.items.map((i) => (
+                      <tr key={i.id}>
+                        <td className="py-0.5">
+                          {formatDateVn(i.time)} — {i.note || "(không ghi chú)"}
+                        </td>
+                        <td className="py-0.5 text-right font-semibold">{formatVnd(i.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             )}
           </div>
 

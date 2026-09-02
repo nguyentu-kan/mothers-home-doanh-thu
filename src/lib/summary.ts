@@ -176,3 +176,31 @@ export async function getStaffSummary(from: Date, to: Date): Promise<StaffSummar
     .map(([userId, v]) => ({ userId, name: nameMap.get(userId) ?? "?", ...v }))
     .sort((a, b) => b.totalThu - b.totalChi - (a.totalThu - a.totalChi));
 }
+
+export type PendingReceivablesSummary = {
+  count: number;
+  total: number;
+  items: { id: string; time: Date; amount: number; note: string | null; recordedByName: string }[];
+};
+
+// Số dư "còn phải thu" HIỆN TẠI — không giới hạn theo kỳ báo cáo (giống cách tính tiền mặt tại quầy),
+// vì đây là câu hỏi "hiện đang còn nợ bao nhiêu", không phải "phát sinh trong kỳ bao nhiêu".
+export async function getPendingReceivablesSummary(): Promise<PendingReceivablesSummary> {
+  const items = await prisma.pendingReceivable.findMany({
+    where: { status: "PENDING" },
+    orderBy: { time: "asc" },
+    include: { recordedByUser: { select: { name: true } } },
+  });
+
+  return {
+    count: items.length,
+    total: items.reduce((sum, i) => sum + i.amount, 0),
+    items: items.map((i) => ({
+      id: i.id,
+      time: i.time,
+      amount: i.amount,
+      note: i.note,
+      recordedByName: i.recordedByUser.name,
+    })),
+  };
+}
