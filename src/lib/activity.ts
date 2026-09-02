@@ -7,7 +7,7 @@ export type ActivityRow = {
   amount: number;
   method: string;
   recordedByName: string;
-  attachmentUrl: string | null;
+  attachmentUrls: string[];
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -65,7 +65,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       amount: s.amount,
       method: PAYMENT_LABEL[s.paymentMethod],
       recordedByName: s.recordedByUser.name,
-      attachmentUrl: null,
+      attachmentUrls: [],
     })),
     ...rooms.map((r) => ({
       time: r.time,
@@ -74,7 +74,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       amount: r.amount,
       method: PAYMENT_LABEL[r.method],
       recordedByName: r.recordedByUser.name,
-      attachmentUrl: r.attachmentUrl,
+      attachmentUrls: r.attachmentUrls,
     })),
     ...otas.map((o) => ({
       time: o.date,
@@ -83,7 +83,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       amount: o.amount,
       method: "Công nợ",
       recordedByName: o.recordedByUser.name,
-      attachmentUrl: o.attachmentUrl,
+      attachmentUrls: o.attachmentUrls,
     })),
     ...expenses.map((e) => ({
       time: e.time,
@@ -92,7 +92,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       amount: -e.amount,
       method: PAYMENT_LABEL[e.method],
       recordedByName: e.recordedByUser.name,
-      attachmentUrl: e.attachmentUrl,
+      attachmentUrls: e.attachmentUrls,
     })),
   ];
 

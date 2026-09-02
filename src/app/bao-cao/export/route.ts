@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         String(r.amount),
         csvEscape(r.method),
         csvEscape(r.recordedByName),
-        csvEscape(r.attachmentUrl || ""),
+        csvEscape(r.attachmentUrls.join(" | ")),
       ].join(",")
     );
   }

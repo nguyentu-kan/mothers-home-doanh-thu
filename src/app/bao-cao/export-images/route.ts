@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
   const { from, to } = getPeriodRange(period, fromParam, toParam);
 
   const rows = await getActivityRows(from, to);
-  const withAttachment = rows.filter((r) => r.attachmentUrl);
+  const attachments = rows.flatMap((row) => row.attachmentUrls.map((url) => ({ row, url })));
 
-  if (withAttachment.length === 0) {
+  if (attachments.length === 0) {
     return new NextResponse("Không có chứng từ nào có ảnh trong khoảng thời gian này.", { status: 404 });
   }
 
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
   const usedNames = new Set<string>();
 
   await Promise.all(
-    withAttachment.map(async (row) => {
+    attachments.map(async ({ row, url }) => {
       try {
-        const res = await fetch(row.attachmentUrl as string);
+        const res = await fetch(url);
         if (!res.ok) return;
         const buffer = Buffer.from(await res.arrayBuffer());
-        const urlExt = (row.attachmentUrl as string).split(".").pop()?.split("?")[0] || "jpg";
+        const urlExt = url.split(".").pop()?.split("?")[0] || "jpg";
         const baseName = `${format(row.time, "yyyy-MM-dd")}_${safeSlug(row.type)}_${row.amount}`;
         let fileName = `${baseName}.${urlExt}`;
         let counter = 2;

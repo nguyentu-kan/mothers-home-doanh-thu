@@ -6,6 +6,7 @@ import { addRoomRevenueAction, type CashbookFormState } from "../actions";
 export default function RoomRevenueForm() {
   const [state, action, pending] = useActionState<CashbookFormState, FormData>(addRoomRevenueAction, undefined);
   const [method, setMethod] = useState<"TIEN_MAT" | "CHUYEN_KHOAN" | "">("");
+  const [attachmentCount, setAttachmentCount] = useState(0);
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -45,16 +46,19 @@ export default function RoomRevenueForm() {
       </div>
 
       <div>
-        <label className="field-label" htmlFor="attachment">
-          Ảnh chuyển khoản (nếu có)
+        <label className="field-label" htmlFor="attachments">
+          Ảnh chuyển khoản (nếu có, chọn được nhiều ảnh)
         </label>
         <input
-          id="attachment"
-          name="attachment"
+          id="attachments"
+          name="attachments"
           type="file"
           accept="image/*,.pdf"
+          multiple
+          onChange={(e) => setAttachmentCount(e.target.files?.length ?? 0)}
           className="field-input"
         />
+        {attachmentCount > 0 && <p className="text-sm text-slate-500 mt-1">Đã chọn {attachmentCount} ảnh</p>}
       </div>
 
       {state?.error && <p className="rounded-xl bg-red-100 px-4 py-3 text-red-800 font-semibold">{state.error}</p>}

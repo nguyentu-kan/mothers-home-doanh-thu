@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { canManageCashbook } from "@/lib/permissions";
-import { uploadAttachment } from "@/lib/supabase";
+import { uploadAttachments } from "@/lib/supabase";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 
 export type CashbookFormState = { error: string } | undefined;
@@ -18,6 +18,10 @@ async function requireCashbookAccess() {
   return session;
 }
 
+function getAttachmentFiles(formData: FormData): File[] {
+  return formData.getAll("attachments").filter((f): f is File => f instanceof File && f.size > 0);
+}
+
 export async function addRoomRevenueAction(
   _prevState: CashbookFormState,
   formData: FormData
@@ -27,7 +31,7 @@ export async function addRoomRevenueAction(
   const amount = parseInt(String(formData.get("amount") || "0"), 10);
   const method = String(formData.get("method") || "");
   const note = String(formData.get("note") || "").trim() || null;
-  const attachment = formData.get("attachment") as File | null;
+  const attachments = getAttachmentFiles(formData);
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Vui lòng nhập số tiền hợp lệ." };
@@ -36,10 +40,10 @@ export async function addRoomRevenueAction(
     return { error: "Vui lòng chọn hình thức." };
   }
 
-  const attachmentUrl = await uploadAttachment(attachment);
+  const attachmentUrls = await uploadAttachments(attachments);
 
   await prisma.roomRevenueEntry.create({
-    data: { amount, method, note, attachmentUrl, recordedByUserId: session.userId },
+    data: { amount, method, note, attachmentUrls, recordedByUserId: session.userId },
   });
 
   await checkCashAndMaybeAlert();
@@ -56,7 +60,7 @@ export async function addOtaReceivableAction(
   const amount = parseInt(String(formData.get("amount") || "0"), 10);
   const platform = String(formData.get("platform") || "");
   const note = String(formData.get("note") || "").trim() || null;
-  const attachment = formData.get("attachment") as File | null;
+  const attachments = getAttachmentFiles(formData);
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Vui lòng nhập số tiền hợp lệ." };
@@ -65,14 +69,14 @@ export async function addOtaReceivableAction(
     return { error: "Vui lòng chọn sàn OTA." };
   }
 
-  const attachmentUrl = await uploadAttachment(attachment);
+  const attachmentUrls = await uploadAttachments(attachments);
 
   await prisma.otaReceivable.create({
     data: {
       amount,
       platform: platform as "AGODA" | "CTRIP" | "BOOKING" | "KHAC",
       note,
-      attachmentUrl,
+      attachmentUrls,
       recordedByUserId: session.userId,
     },
   });
@@ -91,7 +95,7 @@ export async function addExpenseAction(
   const category = String(formData.get("category") || "");
   const method = String(formData.get("method") || "");
   const note = String(formData.get("note") || "").trim();
-  const attachment = formData.get("attachment") as File | null;
+  const attachments = getAttachmentFiles(formData);
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Vui lòng nhập số tiền hợp lệ." };
@@ -106,7 +110,7 @@ export async function addExpenseAction(
     return { error: "Vui lòng ghi lý do chi." };
   }
 
-  const attachmentUrl = await uploadAttachment(attachment);
+  const attachmentUrls = await uploadAttachments(attachments);
 
   await prisma.expense.create({
     data: {
@@ -114,7 +118,7 @@ export async function addExpenseAction(
       category: category as "MAT_BANG" | "LUONG" | "MUA_HANG" | "KHAC",
       method,
       note,
-      attachmentUrl,
+      attachmentUrls,
       recordedByUserId: session.userId,
     },
   });

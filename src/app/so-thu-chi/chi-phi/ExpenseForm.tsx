@@ -14,6 +14,7 @@ export default function ExpenseForm() {
   const [state, action, pending] = useActionState<CashbookFormState, FormData>(addExpenseAction, undefined);
   const [category, setCategory] = useState<"MAT_BANG" | "LUONG" | "MUA_HANG" | "KHAC" | "">("");
   const [method, setMethod] = useState<"TIEN_MAT" | "CHUYEN_KHOAN" | "">("");
+  const [attachmentCount, setAttachmentCount] = useState(0);
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -70,16 +71,19 @@ export default function ExpenseForm() {
       </div>
 
       <div>
-        <label className="field-label" htmlFor="attachment">
-          Ảnh hoá đơn (nếu có)
+        <label className="field-label" htmlFor="attachments">
+          Ảnh hoá đơn (nếu có, chọn được nhiều ảnh)
         </label>
         <input
-          id="attachment"
-          name="attachment"
+          id="attachments"
+          name="attachments"
           type="file"
           accept="image/*,.pdf"
+          multiple
+          onChange={(e) => setAttachmentCount(e.target.files?.length ?? 0)}
           className="field-input"
         />
+        {attachmentCount > 0 && <p className="text-sm text-slate-500 mt-1">Đã chọn {attachmentCount} ảnh</p>}
       </div>
 
       {state?.error && <p className="rounded-xl bg-red-100 px-4 py-3 text-red-800 font-semibold">{state.error}</p>}

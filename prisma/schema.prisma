@@ -112,7 +112,7 @@ model RoomRevenueEntry {
   amount        Int
   method        CashMethod
   note          String?
-  attachmentUrl String?
+  attachmentUrls String[] @default([])
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
@@ -129,7 +129,7 @@ model OtaReceivable {
   platform      OtaPlatform
   amount        Int
   note          String?
-  attachmentUrl String?
+  attachmentUrls String[] @default([])
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
@@ -147,7 +147,7 @@ model Expense {
   amount        Int
   method        CashMethod
   note          String
-  attachmentUrl String?
+  attachmentUrls String[] @default([])
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])

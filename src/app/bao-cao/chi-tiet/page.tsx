@@ -88,15 +88,20 @@ export default async function ChiTietPage({
                   </td>
                   <td className="py-2 pr-2 whitespace-nowrap">{r.recordedByName}</td>
                   <td className="py-2 pr-2 whitespace-nowrap">
-                    {r.attachmentUrl ? (
-                      <a
-                        href={r.attachmentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline font-semibold"
-                      >
-                        📎 Xem ảnh
-                      </a>
+                    {r.attachmentUrls.length > 0 ? (
+                      <span className="flex gap-2">
+                        {r.attachmentUrls.map((url, j) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline font-semibold"
+                          >
+                            📎 Ảnh {r.attachmentUrls.length > 1 ? j + 1 : ""}
+                          </a>
+                        ))}
+                      </span>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
