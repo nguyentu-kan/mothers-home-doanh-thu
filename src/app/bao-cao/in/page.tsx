@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import PrintButton from "@/components/PrintButton";
 import { getPeriodRange, getPreviousPeriodRange, computeChangePercent, type PeriodKey } from "@/lib/period";
-import { getCashbookSummary, getStaffSummary, getPendingReceivablesSummary } from "@/lib/summary";
+import { getCashbookSummary, getStaffSummary, getPendingReceivablesSummary, getOwnerTransferBalance } from "@/lib/summary";
 import { getCashLimitBreaches } from "@/lib/cash";
 import { getSession } from "@/lib/session";
 import { formatVnd, formatDateVn, formatDateTimeVn } from "@/lib/format";
@@ -20,13 +20,14 @@ export default async function BaoCaoInPage({
   const { from, to } = getPeriodRange(period, fromParam, toParam);
   const prevRange = getPreviousPeriodRange(period, from, to);
 
-  const [session, summary, prevSummary, breaches, staff, pendingReceivables] = await Promise.all([
+  const [session, summary, prevSummary, breaches, staff, pendingReceivables, ownerTransferBalance] = await Promise.all([
     getSession(),
     getCashbookSummary(from, to),
     getCashbookSummary(prevRange.from, prevRange.to),
     getCashLimitBreaches(from, to),
     getStaffSummary(from, to),
     getPendingReceivablesSummary(),
+    getOwnerTransferBalance(),
   ]);
 
   const thuChangePct = computeChangePercent(summary.totalThu, prevSummary.totalThu);
@@ -121,6 +122,29 @@ export default async function BaoCaoInPage({
                   </tbody>
                 </table>
               </>
+            )}
+          </div>
+
+          <div className="mt-5 border-t border-black/10 pt-3">
+            <div className="font-bold text-[#1B3A5C] mb-1">Chuyển tiếp cho Cô Vân</div>
+            <p className="text-sm mb-1">
+              Đã nhận vào TK Tiên: {formatVnd(ownerTransferBalance.received)} — Đã chuyển:{" "}
+              {formatVnd(ownerTransferBalance.forwarded)} — Còn cần chuyển:{" "}
+              <b>{formatVnd(ownerTransferBalance.outstanding)}</b>
+            </p>
+            {ownerTransferBalance.transfers.length > 0 && (
+              <table className="w-full text-sm">
+                <tbody>
+                  {ownerTransferBalance.transfers.map((t) => (
+                    <tr key={t.id}>
+                      <td className="py-0.5">
+                        {formatDateVn(t.time)} — {t.note || "(không ghi chú)"} — {t.recordedByName}
+                      </td>
+                      <td className="py-0.5 text-right font-semibold">{formatVnd(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
 

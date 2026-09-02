@@ -204,3 +204,46 @@ export async function getPendingReceivablesSummary(): Promise<PendingReceivables
     })),
   };
 }
+
+export type OwnerTransferBalance = {
+  received: number;
+  forwarded: number;
+  outstanding: number;
+  transfers: {
+    id: string;
+    time: Date;
+    amount: number;
+    note: string | null;
+    attachmentUrls: string[];
+    recordedByName: string;
+  }[];
+};
+
+// Số dư "còn cần chuyển cho Cô Vân" HIỆN TẠI — không giới hạn theo kỳ (giống tiền mặt tại quầy):
+// tổng tiền khách chuyển vào TK Tiên từ trước đến giờ, trừ tổng Ngọc Tiên đã chuyển tiếp cho Cô Vân.
+export async function getOwnerTransferBalance(): Promise<OwnerTransferBalance> {
+  const [receivedAgg, transfers] = await Promise.all([
+    prisma.roomRevenueEntry.aggregate({ _sum: { amount: true }, where: { transferAccount: "TIEN" } }),
+    prisma.ownerTransfer.findMany({
+      orderBy: { time: "desc" },
+      include: { recordedByUser: { select: { name: true } } },
+    }),
+  ]);
+
+  const received = receivedAgg._sum.amount ?? 0;
+  const forwarded = transfers.reduce((sum, t) => sum + t.amount, 0);
+
+  return {
+    received,
+    forwarded,
+    outstanding: received - forwarded,
+    transfers: transfers.map((t) => ({
+      id: t.id,
+      time: t.time,
+      amount: t.amount,
+      note: t.note,
+      attachmentUrls: t.attachmentUrls,
+      recordedByName: t.recordedByUser.name,
+    })),
+  };
+}

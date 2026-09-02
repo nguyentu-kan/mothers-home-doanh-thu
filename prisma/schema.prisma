@@ -82,6 +82,7 @@ model User {
   handoversReceived   ShiftHandover[]     @relation("ReceiverUser")
   pendingReceivablesRecorded  PendingReceivable[] @relation("RecordedByUser")
   pendingReceivablesCollected PendingReceivable[] @relation("CollectedByUser")
+  ownerTransfers              OwnerTransfer[]
 }
 
 model MenuItem {
@@ -164,6 +165,24 @@ model PendingReceivable {
   createdAt DateTime @default(now())
 
   @@index([status])
+}
+
+// Mỗi lần Ngọc Tiên chuyển tiền (đã nhận vào TK cá nhân của mình) lại cho Cô Vân — kèm ảnh chuyển
+// khoản làm bằng chứng, để trả lời được ngay khi Cô Vân hỏi "đã chuyển chưa" mà không cần lục Zalo.
+// Số dư "còn cần chuyển" = tổng RoomRevenueEntry(transferAccount=TIEN) trừ tổng OwnerTransfer này.
+model OwnerTransfer {
+  id            String   @id @default(cuid())
+  time          DateTime @default(now())
+  amount        Int
+  note          String?
+  attachmentUrls String[] @default([])
+
+  recordedByUserId String
+  recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([time])
 }
 
 // Sổ Thu Chi — OTA công nợ (chị Tiên nhập, chỉ ghi tổng phát sinh/ngày)

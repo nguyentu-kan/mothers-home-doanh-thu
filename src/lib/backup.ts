@@ -40,7 +40,7 @@ const SHIFT_LABEL: Record<string, string> = { SANG: "Sáng", CHIEU: "Chiều", D
 // Toàn bộ dữ liệu từ trước tới nay, đóng gói thành 1 file ZIP — dùng chung cho nút tải tay
 // ("Xuất toàn bộ dữ liệu") và cho tác vụ tự động gửi lên Google Drive định kỳ.
 export async function generateBackupZip(generatedByName: string): Promise<Uint8Array> {
-  const [rooms, otas, expenses, services, pending, handovers] = await Promise.all([
+  const [rooms, otas, expenses, services, pending, handovers, ownerTransfers] = await Promise.all([
     prisma.roomRevenueEntry.findMany({ include: { recordedByUser: true }, orderBy: { time: "asc" } }),
     prisma.otaReceivable.findMany({ include: { recordedByUser: true }, orderBy: { date: "asc" } }),
     prisma.expense.findMany({ include: { recordedByUser: true }, orderBy: { time: "asc" } }),
@@ -53,6 +53,7 @@ export async function generateBackupZip(generatedByName: string): Promise<Uint8A
       include: { handoverUser: true, receiverUser: true },
       orderBy: { date: "asc" },
     }),
+    prisma.ownerTransfer.findMany({ include: { recordedByUser: true }, orderBy: { time: "asc" } }),
   ]);
 
   const zip = new JSZip();
@@ -171,11 +172,26 @@ export async function generateBackupZip(generatedByName: string): Promise<Uint8A
     )
   );
 
-  // Toàn bộ ảnh đính kèm — gộp từ Thu phòng/OTA/Chi phí, đặt tên rõ ràng theo ngày/loại/số tiền.
+  zip.file(
+    "chuyen-tiep-co-van.csv",
+    toCsv(
+      ["Thời gian", "Số tiền", "Ghi chú", "Người ghi", "Số ảnh đính kèm"],
+      ownerTransfers.map((t) => [
+        formatDateTimeVn(t.time),
+        t.amount,
+        t.note || "",
+        t.recordedByUser.name,
+        t.attachmentUrls.length,
+      ])
+    )
+  );
+
+  // Toàn bộ ảnh đính kèm — gộp từ Thu phòng/OTA/Chi phí/Chuyển tiếp, đặt tên rõ theo ngày/loại/số tiền.
   const attachmentSources: { time: Date; type: string; amount: number; urls: string[] }[] = [
     ...rooms.map((r) => ({ time: r.time, type: "ThuPhong", amount: r.amount, urls: r.attachmentUrls })),
     ...otas.map((o) => ({ time: o.date, type: "OTA", amount: o.amount, urls: o.attachmentUrls })),
     ...expenses.map((e) => ({ time: e.time, type: "ChiPhi", amount: e.amount, urls: e.attachmentUrls })),
+    ...ownerTransfers.map((t) => ({ time: t.time, type: "ChuyenTiep", amount: t.amount, urls: t.attachmentUrls })),
   ];
   const usedNames = new Set<string>();
   await Promise.all(

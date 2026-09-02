@@ -34,7 +34,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
   const timeFilter = { gte: from, lte: to };
   const userFilter = userId ? { recordedByUserId: userId } : {};
 
-  const [services, rooms, otas, expenses, pendingReceivables] = await Promise.all([
+  const [services, rooms, otas, expenses, pendingReceivables, ownerTransfers] = await Promise.all([
     prisma.serviceRecord.findMany({
       where: { time: timeFilter, ...userFilter },
       include: { recordedByUser: true },
@@ -56,6 +56,11 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       orderBy: { time: "desc" },
     }),
     prisma.pendingReceivable.findMany({
+      where: { time: timeFilter, ...userFilter },
+      include: { recordedByUser: true },
+      orderBy: { time: "desc" },
+    }),
+    prisma.ownerTransfer.findMany({
       where: { time: timeFilter, ...userFilter },
       include: { recordedByUser: true },
       orderBy: { time: "desc" },
@@ -111,6 +116,15 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: p.status === "COLLECTED" ? "Đã thu" : "Chưa thu",
       recordedByName: p.recordedByUser.name,
       attachmentUrls: [],
+    })),
+    ...ownerTransfers.map((t) => ({
+      time: t.time,
+      type: "Chuyển tiếp cho Cô Vân",
+      description: t.note || "",
+      amount: t.amount,
+      method: "Chuyển khoản",
+      recordedByName: t.recordedByUser.name,
+      attachmentUrls: t.attachmentUrls,
     })),
   ];
 

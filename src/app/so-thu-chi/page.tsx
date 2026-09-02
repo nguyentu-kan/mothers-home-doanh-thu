@@ -5,12 +5,13 @@ import BigLinkButton from "@/components/BigLinkButton";
 import PrintButton from "@/components/PrintButton";
 import PeriodTabs from "@/components/PeriodTabs";
 import { getPeriodRange, type PeriodKey } from "@/lib/period";
-import { getCashbookSummary } from "@/lib/summary";
+import { getCashbookSummary, getOwnerTransferBalance } from "@/lib/summary";
 import { formatVnd, formatDateVn } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
 import PendingReceivablesList from "./con-thu/PendingReceivablesList";
 import TodayCashbookEntriesList from "./TodayCashbookEntriesList";
+import OwnerTransferSection from "./chuyen-tiep/OwnerTransferSection";
 
 const OTA_PLATFORM_LABEL: Record<string, string> = { AGODA: "Agoda", CTRIP: "Ctrip", BOOKING: "Booking.com", KHAC: "Khác" };
 const EXPENSE_CATEGORY_LABEL: Record<string, string> = {
@@ -35,7 +36,7 @@ export default async function SoThuChiPage({
   const now = new Date();
   const todayFilter = { gte: startOfDay(now), lte: endOfDay(now) };
 
-  const [summary, roomEntriesToday, otaEntriesToday, expenseEntriesToday, serviceToday, pendingReceivables] =
+  const [summary, roomEntriesToday, otaEntriesToday, expenseEntriesToday, serviceToday, pendingReceivables, ownerTransferBalance] =
     await Promise.all([
       getCashbookSummary(from, to),
       prisma.roomRevenueEntry.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
@@ -47,6 +48,7 @@ export default async function SoThuChiPage({
         orderBy: { time: "asc" },
         include: { recordedByUser: { select: { name: true } } },
       }),
+      getOwnerTransferBalance(),
     ]);
 
   const roomToday = roomEntriesToday.length;
@@ -154,16 +156,7 @@ export default async function SoThuChiPage({
           </div>
         </div>
 
-        {summary.roomChuyenKhoanTaiKhoanTien > 0 && (
-          <div className="no-print rounded-2xl bg-amber-100 dark:bg-amber-900/40 px-4 py-3 flex justify-between items-center">
-            <span className="font-semibold text-amber-900 dark:text-amber-200">
-              💸 Đang ở TK Tiên, cần chuyển cho Cô Vân
-            </span>
-            <span className="font-extrabold text-amber-900 dark:text-amber-200">
-              {formatVnd(summary.roomChuyenKhoanTaiKhoanTien)}
-            </span>
-          </div>
-        )}
+        <OwnerTransferSection outstanding={ownerTransferBalance.outstanding} transfers={ownerTransferBalance.transfers} />
 
         <PendingReceivablesList
           items={pendingReceivables.map((p) => ({
