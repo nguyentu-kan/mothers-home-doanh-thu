@@ -87,6 +87,17 @@ export async function confirmQuickCaptureAction(
         });
       }
 
+      if (entry.type === "CON_THU") {
+        return prisma.pendingReceivable.create({
+          data: {
+            amount: entry.amount,
+            note: entry.note || null,
+            time,
+            recordedByUserId: session.userId,
+          },
+        });
+      }
+
       const category = entry.type.replace("CHI_", "") as "MAT_BANG" | "LUONG" | "MUA_HANG" | "KHAC";
       return prisma.expense.create({
         data: {

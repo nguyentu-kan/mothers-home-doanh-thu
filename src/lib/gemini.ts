@@ -2,6 +2,7 @@ export type DraftEntryType =
   | "ROOM_TIEN_MAT"
   | "ROOM_CHUYEN_KHOAN"
   | "OTA"
+  | "CON_THU"
   | "CHI_MAT_BANG"
   | "CHI_LUONG"
   | "CHI_MUA_HANG"
@@ -18,6 +19,7 @@ const DRAFT_TYPES: DraftEntryType[] = [
   "ROOM_TIEN_MAT",
   "ROOM_CHUYEN_KHOAN",
   "OTA",
+  "CON_THU",
   "CHI_MAT_BANG",
   "CHI_LUONG",
   "CHI_MUA_HANG",
@@ -28,7 +30,7 @@ const SYSTEM_PROMPT = `Bạn là trợ lý đọc sổ thu chi cho một khách 
 Đọc nội dung được cung cấp (có thể là ảnh chụp sổ tay viết tay, ảnh hoá đơn/chuyển khoản, hoặc đoạn chữ do nhân viên đọc/gõ) và trích xuất TẤT CẢ các khoản Thu hoặc Chi tìm thấy.
 
 Mỗi khoản trả về 1 object với các trường:
-- type: bắt buộc là một trong: "ROOM_TIEN_MAT" (thu tiền phòng bằng tiền mặt), "ROOM_CHUYEN_KHOAN" (thu tiền phòng qua chuyển khoản), "OTA" (công nợ từ Agoda/Ctrip/Booking...), "CHI_MAT_BANG" (chi tiền thuê mặt bằng), "CHI_LUONG" (chi trả lương), "CHI_MUA_HANG" (chi mua hàng/nguyên vật liệu/đồ dùng), "CHI_KHAC" (chi phí khác không rõ loại)
+- type: bắt buộc là một trong: "ROOM_TIEN_MAT" (thu tiền phòng bằng tiền mặt), "ROOM_CHUYEN_KHOAN" (thu tiền phòng qua chuyển khoản), "OTA" (công nợ từ Agoda/Ctrip/Booking...), "CON_THU" (khách còn nợ trực tiếp khách sạn, CHƯA thu được tiền — xem hướng dẫn "còn thu Y" bên dưới), "CHI_MAT_BANG" (chi tiền thuê mặt bằng), "CHI_LUONG" (chi trả lương), "CHI_MUA_HANG" (chi mua hàng/nguyên vật liệu/đồ dùng), "CHI_KHAC" (chi phí khác không rõ loại)
 - amount: số tiền, đơn vị VNĐ, là số nguyên (vd 500000, không phải "500k" hay "500.000đ")
 - note: ghi chú ngắn gọn (số phòng, tên khách, lý do chi...), nếu không có thì để chuỗi rỗng
 - date: BẮT BUỘC đúng định dạng "YYYY-MM-DD" (4 số năm - 2 số tháng - 2 số ngày) nếu đọc được. Ký hiệu Việt Nam luôn là ngày/tháng, KHÔNG phải tháng/ngày — vd sổ ghi "9/8" nghĩa là ngày 9 tháng 8, năm hiện tại là ${new Date().getFullYear()}, phải trả về "${new Date().getFullYear()}-08-09". Nếu không đọc được ngày rõ ràng, để null — TUYỆT ĐỐI không trả về dạng "9/8" hay bất kỳ định dạng nào khác ngoài YYYY-MM-DD hoặc null.
@@ -39,7 +41,7 @@ Ghi chú quan trọng — nhân viên khách sạn thường ghi tắt theo tìn
 - Dòng chỉ ghi số phòng (vd "P402", "P203-301") kèm "in" (nhận phòng) hoặc "out" (trả phòng) mà KHÔNG có số tiền đi kèm — đây CHỈ là ghi chú tình trạng phòng, KHÔNG PHẢI khoản thu/chi, KHÔNG trích xuất dòng này.
 - Dòng có tên sàn OTA (Agoda, Booking, Ctrip, Traveloka...) kèm số tiền cuối dòng — đây là khoản OTA công nợ (type "OTA"), amount = số tiền đó.
 - Chữ "cọc X" hoặc "đã cọc X" hoặc "nhận cọc X" — đây LÀ tiền đã thực nhận, trích xuất thành khoản Thu (amount = X). Nếu thấy "ck" gần đó thì dùng ROOM_CHUYEN_KHOAN, nếu thấy "TM" thì dùng ROOM_TIEN_MAT, không thấy gì thì mặc định ROOM_TIEN_MAT.
-- Chữ "còn thu Y" hoặc "còn lại Y" — đây là số tiền KHÁCH CÒN NỢ, CHƯA thu được, KHÔNG được tính là khoản Thu — bỏ qua, không trích xuất dòng này (trừ khi cùng dòng có chữ "đã TT"/"đã thanh toán" xác nhận đã thu đủ, lúc đó mới trích xuất Y là khoản Thu).
+- Chữ "còn thu Y" hoặc "còn lại Y" — đây là số tiền KHÁCH CÒN NỢ, CHƯA thu được. TUYỆT ĐỐI KHÔNG tính là khoản Thu (ROOM_TIEN_MAT/ROOM_CHUYEN_KHOAN) — thay vào đó trích xuất thành khoản riêng type "CON_THU", amount = Y, để theo dõi và thu sau (trừ khi cùng dòng có chữ "đã TT"/"đã thanh toán" xác nhận đã thu đủ, lúc đó Y là khoản Thu thật (ROOM_TIEN_MAT/ROOM_CHUYEN_KHOAN), không phải CON_THU).
 - "in ck 700.000" hoặc "in TM 800.000" (ghi ngay lúc nhận phòng, kèm hình thức + số tiền, KHÔNG có dòng "đã cọc"/"còn thu" nào theo sau nói về CÙNG khoản đó) — đây LÀ khoản Thu phòng thật, trích xuất bình thường theo hình thức tương ứng.
 - QUAN TRỌNG — tránh đếm trùng: nếu một dòng ghi tổng giá trị đặt phòng kèm hình thức (vd "ck 600.000") nhưng NGAY SAU ĐÓ có dòng "đã cọc X. Còn thu Y" giải thích rằng trong tổng đó chỉ mới thu X, còn nợ Y — thì con số tổng đầu dòng (600.000) CHỈ LÀ giá trị đặt phòng tham khảo, KHÔNG PHẢI tiền đã nhận, TUYỆT ĐỐI KHÔNG trích xuất số đó. Chỉ trích xuất X (khoản "đã cọc") là khoản Thu thật duy nhất của trường hợp này.
 - "đã TT" (đã thanh toán) đứng một mình không kèm số tiền mới — bỏ qua, không trích xuất (đã được tính từ trước).

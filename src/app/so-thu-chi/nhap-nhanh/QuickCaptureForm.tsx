@@ -30,6 +30,7 @@ const TYPE_LABELS: Record<DraftEntryType, string> = {
   ROOM_TIEN_MAT: "Thu phòng — Tiền mặt",
   ROOM_CHUYEN_KHOAN: "Thu phòng — Chuyển khoản",
   OTA: "OTA công nợ",
+  CON_THU: "Còn phải thu (chưa có tiền)",
   CHI_MAT_BANG: "Chi — Mặt bằng",
   CHI_LUONG: "Chi — Lương",
   CHI_MUA_HANG: "Chi — Mua hàng",

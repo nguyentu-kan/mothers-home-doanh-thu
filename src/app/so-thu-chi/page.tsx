@@ -9,6 +9,7 @@ import { getCashbookSummary } from "@/lib/summary";
 import { formatVnd, formatDateVn } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
+import PendingReceivablesList from "./con-thu/PendingReceivablesList";
 
 // Sau giờ này mà chưa ghi khoản Thu phòng nào trong ngày thì nhắc — hầu hết ngày khách sạn đều
 // có khách nhận/trả phòng trước giờ này, nên im lặng tới lúc đó nhiều khả năng là quên ghi.
@@ -25,12 +26,17 @@ export default async function SoThuChiPage({
   const now = new Date();
   const todayFilter = { gte: startOfDay(now), lte: endOfDay(now) };
 
-  const [summary, roomToday, otaToday, expenseToday, serviceToday] = await Promise.all([
+  const [summary, roomToday, otaToday, expenseToday, serviceToday, pendingReceivables] = await Promise.all([
     getCashbookSummary(from, to),
     prisma.roomRevenueEntry.count({ where: { time: todayFilter } }),
     prisma.otaReceivable.count({ where: { date: todayFilter } }),
     prisma.expense.count({ where: { time: todayFilter } }),
     prisma.serviceRecord.count({ where: { time: todayFilter } }),
+    prisma.pendingReceivable.findMany({
+      where: { status: "PENDING" },
+      orderBy: { time: "asc" },
+      include: { recordedByUser: { select: { name: true } } },
+    }),
   ]);
 
   const showReminder = now.getHours() >= REMINDER_HOUR && roomToday === 0;
@@ -120,6 +126,16 @@ export default async function SoThuChiPage({
             </span>
           </div>
         )}
+
+        <PendingReceivablesList
+          items={pendingReceivables.map((p) => ({
+            id: p.id,
+            time: p.time,
+            amount: p.amount,
+            note: p.note,
+            recordedByName: p.recordedByUser.name,
+          }))}
+        />
 
         <div className="no-print card">
           <div className="font-bold text-[#1B3A5C] dark:text-white mb-2">✅ Kiểm tra cuối ngày (hôm nay)</div>

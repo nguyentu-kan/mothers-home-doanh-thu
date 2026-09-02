@@ -59,6 +59,11 @@ enum TransferAccount {
   VAN
 }
 
+enum PendingReceivableStatus {
+  PENDING
+  COLLECTED
+}
+
 model User {
   id                String   @id @default(cuid())
   name              String
@@ -75,6 +80,8 @@ model User {
   expenses            Expense[]
   handoversGiven      ShiftHandover[]     @relation("HandoverUser")
   handoversReceived   ShiftHandover[]     @relation("ReceiverUser")
+  pendingReceivablesRecorded  PendingReceivable[] @relation("RecordedByUser")
+  pendingReceivablesCollected PendingReceivable[] @relation("CollectedByUser")
 }
 
 model MenuItem {
@@ -125,9 +132,38 @@ model RoomRevenueEntry {
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
 
+  pendingReceivable PendingReceivable?
+
   createdAt DateTime @default(now())
 
   @@index([time])
+}
+
+// Khoản khách còn nợ trực tiếp khách sạn (khác OTA công nợ — đây là khách đặt thẳng, không qua sàn),
+// vd sổ tay ghi "cọc 500, còn thu 1.500.000" — phần "còn thu" chưa có tiền thật, cần theo dõi để
+// không quên, và để bất kỳ ai (ca sau, ngày khác) thu được thì đánh dấu "Đã thu" — lúc đó mới tạo
+// khoản Thu phòng thật.
+model PendingReceivable {
+  id     String                  @id @default(cuid())
+  time   DateTime                @default(now())
+  amount Int
+  note   String?
+  status PendingReceivableStatus @default(PENDING)
+
+  collectedMethod         CashMethod?
+  collectedTransferAccount TransferAccount?
+  collectedAt              DateTime?
+  collectedByUserId        String?
+  collectedByUser          User?     @relation("CollectedByUser", fields: [collectedByUserId], references: [id])
+  roomRevenueEntryId       String?   @unique
+  roomRevenueEntry         RoomRevenueEntry? @relation(fields: [roomRevenueEntryId], references: [id])
+
+  recordedByUserId String
+  recordedByUser   User   @relation("RecordedByUser", fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
 }
 
 // Sổ Thu Chi — OTA công nợ (chị Tiên nhập, chỉ ghi tổng phát sinh/ngày)
