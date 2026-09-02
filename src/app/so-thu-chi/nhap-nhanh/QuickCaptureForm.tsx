@@ -106,13 +106,20 @@ export default function QuickCaptureForm() {
     if (!currentDraft || currentDraft.length === 0) return;
     setConfirmPending(true);
     setConfirmError(null);
-    const result = await confirmQuickCaptureAction(currentDraft);
-    setConfirmPending(false);
-    if (!result.ok) {
-      setConfirmError(result.error);
-      return;
+    try {
+      const result = await confirmQuickCaptureAction(currentDraft);
+      if (!result.ok) {
+        setConfirmError(result.error);
+        return;
+      }
+      router.push("/so-thu-chi");
+    } catch {
+      setConfirmError(
+        "Không thể lưu — có thể do mất mạng. Các dòng đã đọc vẫn còn ở đây, kiểm tra mạng rồi bấm Xác nhận lưu lại."
+      );
+    } finally {
+      setConfirmPending(false);
     }
-    router.push("/so-thu-chi");
   }
 
   if (currentDraft) {
