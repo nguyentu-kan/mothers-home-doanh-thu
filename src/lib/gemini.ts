@@ -90,9 +90,10 @@ export async function parseQuickCapture(input: {
     },
   };
 
-  // "gemini-flash-latest" luôn trỏ tới bản flash mới nhất Google đang khuyến nghị —
-  // tránh phải sửa code mỗi khi Google đổi tên/khai tử phiên bản model cụ thể.
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+  // Dùng tên model cụ thể thay vì alias "gemini-flash-latest" — alias này từng bị treo/không
+  // phản hồi hoàn toàn phía Google dù các model cụ thể khác vẫn chạy bình thường. Nếu Google
+  // khai tử "gemini-2.5-flash" sau này, đổi sang tên model còn hoạt động khác tại đây.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   let response: Response | null = null;
   // Model mới nhất đôi khi quá tải tạm thời (503) — thử lại vài lần trước khi báo lỗi cho người dùng.
