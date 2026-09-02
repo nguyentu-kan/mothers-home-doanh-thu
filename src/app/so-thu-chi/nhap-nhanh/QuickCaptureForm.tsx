@@ -149,9 +149,14 @@ export default function QuickCaptureForm() {
   }
 
   if (currentDraft) {
+    const todayStr = new Date().toISOString().slice(0, 10);
     return (
       <div className="flex flex-col gap-4">
         <p className="text-slate-500">AI đọc được {currentDraft.length} khoản. Kiểm tra và sửa nếu cần trước khi lưu.</p>
+        <p className="text-sm text-amber-700 dark:text-amber-400 -mt-2">
+          ⚠️ Nếu ảnh là sổ tay của ngày cũ (ghi bù), nhớ kiểm tra lại ô Ngày của từng khoản — mặc định là hôm nay
+          nếu AI không đọc được ngày.
+        </p>
 
         {currentDraft.map((entry, i) => (
           <div key={i} className="card flex flex-col gap-3">
@@ -166,6 +171,15 @@ export default function QuickCaptureForm() {
                 </option>
               ))}
             </select>
+            <div>
+              <label className="field-label text-sm">Ngày</label>
+              <input
+                type="date"
+                value={entry.date || todayStr}
+                onChange={(e) => updateDraftEntry(i, { date: e.target.value })}
+                className="field-input"
+              />
+            </div>
             <input
               type="text"
               inputMode="numeric"
