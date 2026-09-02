@@ -87,6 +87,39 @@ export function classifyCashLevel(amount: number, warning: number, danger: numbe
   return "OK";
 }
 
+export type CashLimitBreach = {
+  date: Date;
+  shiftType: string;
+  cashEndCounted: number;
+  level: "WARNING" | "DANGER";
+};
+
+// Quét các ca đã bàn giao (2 bên xác nhận) trong khoảng ngày, tìm ca nào tiền mặt cuối ca vượt
+// ngưỡng cảnh báo — dùng để trả lời "kỳ này có vượt hạn mức không, mấy lần" trong Báo cáo.
+export async function getCashLimitBreaches(from: Date, to: Date): Promise<CashLimitBreach[]> {
+  const { warning, danger } = await getCashThresholds();
+
+  const handovers = await prisma.shiftHandover.findMany({
+    where: {
+      handoverConfirmed: true,
+      receiverConfirmed: true,
+      date: { gte: from, lte: to },
+      cashEndCounted: { gt: warning },
+    },
+    orderBy: { date: "asc" },
+    select: { date: true, shiftType: true, cashEndCounted: true },
+  });
+
+  return handovers
+    .filter((h) => h.cashEndCounted != null)
+    .map((h) => ({
+      date: h.date,
+      shiftType: h.shiftType,
+      cashEndCounted: h.cashEndCounted as number,
+      level: (h.cashEndCounted as number) > danger ? "DANGER" : "WARNING",
+    }));
+}
+
 // Gọi sau mỗi lần lưu Chức năng 1 / Sổ Thu Chi / Chức năng 2 — tính lại tiền mặt tại quầy,
 // và chỉ gửi email khi VỪA chuyển sang mức DANGER (tránh gửi lặp lại liên tục khi vẫn còn vượt mức).
 export async function checkCashAndMaybeAlert() {

@@ -9,9 +9,9 @@
   "lang": "vi",
   "icons": [
     {
-      "src": "/icons/icon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "src": "/icons/logo.jpg",
+      "sizes": "1080x1080",
+      "type": "image/jpeg",
       "purpose": "any"
     }
   ]

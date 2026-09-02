@@ -1,11 +1,15 @@
+import Link from "next/link";
 import Header from "@/components/Header";
 import ReportTabs from "@/components/ReportTabs";
 import RevenueChart from "@/components/RevenueChart";
-import { getPeriodRange, type PeriodKey } from "@/lib/period";
-import { getCashbookSummary, getDailyRevenueSeries } from "@/lib/summary";
-import { formatVnd, formatDateVn } from "@/lib/format";
+import { getPeriodRange, getPreviousPeriodRange, computeChangePercent, type PeriodKey } from "@/lib/period";
+import { getCashbookSummary, getDailyRevenueSeries, getStaffSummary } from "@/lib/summary";
+import { getCashLimitBreaches } from "@/lib/cash";
+import { formatVnd, formatDateVn, formatDateTimeVn } from "@/lib/format";
 import PeriodTabs from "@/components/PeriodTabs";
 import CustomDateRangeForm from "@/components/CustomDateRangeForm";
+
+const SHIFT_LABEL: Record<string, string> = { SANG: "Sáng", CHIEU: "Chiều", DEM: "Đêm" };
 
 export default async function BaoCaoPage({
   searchParams,
@@ -17,8 +21,21 @@ export default async function BaoCaoPage({
   const fromParam = typeof params.from === "string" ? params.from : undefined;
   const toParam = typeof params.to === "string" ? params.to : undefined;
   const { from, to } = getPeriodRange(period, fromParam, toParam);
+  const prevRange = getPreviousPeriodRange(period, from, to);
 
-  const [summary, series] = await Promise.all([getCashbookSummary(from, to), getDailyRevenueSeries(from, to)]);
+  const [summary, series, prevSummary, breaches, staff] = await Promise.all([
+    getCashbookSummary(from, to),
+    getDailyRevenueSeries(from, to),
+    getCashbookSummary(prevRange.from, prevRange.to),
+    getCashLimitBreaches(from, to),
+    getStaffSummary(from, to),
+  ]);
+
+  const thuChangePct = computeChangePercent(summary.totalThu, prevSummary.totalThu);
+  const chiChangePct = computeChangePercent(summary.totalChi, prevSummary.totalChi);
+
+  const rangeQuery =
+    period === "custom" && fromParam && toParam ? `period=custom&from=${fromParam}&to=${toParam}` : `period=${period}`;
 
   return (
     <>
@@ -29,6 +46,18 @@ export default async function BaoCaoPage({
         <PeriodTabs basePath="/bao-cao" period={period} />
         <div className="card">
           <CustomDateRangeForm from={fromParam} to={toParam} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Link href={`/bao-cao/in?${rangeQuery}`} className="rounded-xl py-3 text-center font-semibold bg-slate-600 text-white">
+            🖨️ In báo cáo đầy đủ
+          </Link>
+          <a
+            href={`/bao-cao/export-images?${rangeQuery}`}
+            className="rounded-xl py-3 text-center font-semibold bg-slate-600 text-white"
+          >
+            🗂️ Tải ảnh chứng từ (ZIP)
+          </a>
         </div>
 
         <div className="card">
@@ -46,13 +75,78 @@ export default async function BaoCaoPage({
         </div>
 
         <div className="card flex justify-between items-center">
-          <span className="font-bold">TỔNG DOANH THU</span>
+          <div>
+            <span className="font-bold">TỔNG DOANH THU</span>
+            <ChangeBadge pct={thuChangePct} goodDirection="up" />
+          </div>
           <span className="font-extrabold text-xl text-[#1B3A5C] dark:text-white">{formatVnd(summary.totalThu)}</span>
         </div>
         <div className="card flex justify-between items-center">
-          <span className="font-bold">TỔNG CHI PHÍ</span>
+          <div>
+            <span className="font-bold">TỔNG CHI PHÍ</span>
+            <ChangeBadge pct={chiChangePct} goodDirection="down" />
+          </div>
           <span className="font-extrabold text-xl text-red-600">{formatVnd(summary.totalChi)}</span>
         </div>
+        <p className="text-xs text-slate-400 -mt-2">
+          So với kỳ trước ({formatDateVn(prevRange.from)} – {formatDateVn(prevRange.to)})
+        </p>
+
+        <div className="card">
+          <div className="font-bold text-[#1B3A5C] dark:text-white mb-2">⚠️ Vượt hạn mức tiền mặt</div>
+          {breaches.length === 0 ? (
+            <p className="text-sm text-emerald-700">Không có lần nào vượt hạn mức trong kỳ này.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                {breaches.length} lần vượt hạn mức ({breaches.filter((b) => b.level === "DANGER").length} lần mức đỏ).
+              </p>
+              {breaches.map((b, i) => (
+                <div
+                  key={i}
+                  className={`flex justify-between text-sm rounded-lg px-3 py-2 ${
+                    b.level === "DANGER" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-900"
+                  }`}
+                >
+                  <span>
+                    {formatDateVn(b.date)} — Ca {SHIFT_LABEL[b.shiftType]}
+                  </span>
+                  <span className="font-semibold">{formatVnd(b.cashEndCounted)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card overflow-x-auto">
+          <div className="font-bold text-[#1B3A5C] dark:text-white mb-2">👥 Theo nhân viên</div>
+          {staff.length === 0 ? (
+            <p className="text-sm text-slate-500">Chưa có dữ liệu trong kỳ này.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b border-black/10 dark:border-white/10">
+                  <th className="py-1 pr-2">Nhân viên</th>
+                  <th className="py-1 pr-2 text-right">Số dòng</th>
+                  <th className="py-1 pr-2 text-right">Tổng thu</th>
+                  <th className="py-1 pr-2 text-right">Tổng chi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.map((s) => (
+                  <tr key={s.userId} className="border-b border-black/5 dark:border-white/5">
+                    <td className="py-1 pr-2">{s.name}</td>
+                    <td className="py-1 pr-2 text-right">{s.recordCount}</td>
+                    <td className="py-1 pr-2 text-right">{formatVnd(s.totalThu)}</td>
+                    <td className="py-1 pr-2 text-right text-red-600">{formatVnd(s.totalChi)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <p className="text-xs text-slate-400 text-center">Cập nhật lúc {formatDateTimeVn(new Date())}</p>
       </main>
     </>
   );
@@ -66,5 +160,16 @@ function StatCard({ label, value, color }: { label: string; value: number; color
         {formatVnd(value)}
       </div>
     </div>
+  );
+}
+
+function ChangeBadge({ pct, goodDirection }: { pct: number | null; goodDirection: "up" | "down" }) {
+  if (pct === null) return null;
+  const isUp = pct >= 0;
+  const isGood = isUp ? goodDirection === "up" : goodDirection === "down";
+  return (
+    <span className={`ml-2 text-xs font-semibold ${isGood ? "text-emerald-600" : "text-red-600"}`}>
+      {isUp ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%
+    </span>
   );
 }

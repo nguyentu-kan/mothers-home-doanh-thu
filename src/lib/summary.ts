@@ -110,3 +110,61 @@ export async function getDailyRevenueSeries(from: Date, to: Date): Promise<Daily
     };
   });
 }
+
+export type StaffSummaryRow = {
+  userId: string;
+  name: string;
+  recordCount: number;
+  totalThu: number;
+  totalChi: number;
+};
+
+// Gộp theo người ghi trên cả 4 nguồn — trả lời "ai ghi bao nhiêu dòng, tổng bao nhiêu tiền" trong kỳ.
+export async function getStaffSummary(from: Date, to: Date): Promise<StaffSummaryRow[]> {
+  const timeFilter = { gte: from, lte: to };
+
+  const [services, rooms, otas, expenses, users] = await Promise.all([
+    prisma.serviceRecord.groupBy({ by: ["recordedByUserId"], _sum: { amount: true }, _count: true, where: { time: timeFilter } }),
+    prisma.roomRevenueEntry.groupBy({ by: ["recordedByUserId"], _sum: { amount: true }, _count: true, where: { time: timeFilter } }),
+    prisma.otaReceivable.groupBy({ by: ["recordedByUserId"], _sum: { amount: true }, _count: true, where: { date: timeFilter } }),
+    prisma.expense.groupBy({ by: ["recordedByUserId"], _sum: { amount: true }, _count: true, where: { time: timeFilter } }),
+    prisma.user.findMany({ select: { id: true, name: true } }),
+  ]);
+
+  const nameMap = new Map(users.map((u) => [u.id, u.name]));
+  const map = new Map<string, { recordCount: number; totalThu: number; totalChi: number }>();
+
+  function ensure(userId: string) {
+    let entry = map.get(userId);
+    if (!entry) {
+      entry = { recordCount: 0, totalThu: 0, totalChi: 0 };
+      map.set(userId, entry);
+    }
+    return entry;
+  }
+
+  for (const s of services) {
+    const e = ensure(s.recordedByUserId);
+    e.recordCount += s._count;
+    e.totalThu += s._sum.amount ?? 0;
+  }
+  for (const r of rooms) {
+    const e = ensure(r.recordedByUserId);
+    e.recordCount += r._count;
+    e.totalThu += r._sum.amount ?? 0;
+  }
+  for (const o of otas) {
+    const e = ensure(o.recordedByUserId);
+    e.recordCount += o._count;
+    e.totalThu += o._sum.amount ?? 0;
+  }
+  for (const x of expenses) {
+    const e = ensure(x.recordedByUserId);
+    e.recordCount += x._count;
+    e.totalChi += x._sum.amount ?? 0;
+  }
+
+  return Array.from(map.entries())
+    .map(([userId, v]) => ({ userId, name: nameMap.get(userId) ?? "?", ...v }))
+    .sort((a, b) => b.totalThu - b.totalChi - (a.totalThu - a.totalChi));
+}

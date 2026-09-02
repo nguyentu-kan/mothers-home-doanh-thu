@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: "Sổ Thu Chi Mother's Home",
   description: "Ghi nhận dịch vụ & sổ thu chi khách sạn Mother's Home",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icons/logo.jpg",
+    apple: "/icons/logo.jpg",
+  },
 };
 
 // Toàn bộ app là dữ liệu riêng theo phiên đăng nhập (thu chi, ca trực...) — không có nội dung

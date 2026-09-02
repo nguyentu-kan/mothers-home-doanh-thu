@@ -8,7 +8,11 @@ export default async function Header() {
 
   return (
     <header className="no-print sticky top-0 z-10 bg-[#1B3A5C] text-white px-4 py-3 flex items-center justify-between shadow">
-      <Link href="/" className="font-bold text-lg">
+      <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <span className="w-8 h-8 rounded-full bg-white overflow-hidden shrink-0 flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/logo.jpg" alt="Mother's Home" className="w-full h-full object-cover" />
+        </span>
         Mother&apos;s Home
       </Link>
       <div className="flex items-center gap-3 text-sm">
