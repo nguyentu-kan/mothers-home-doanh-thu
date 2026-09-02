@@ -17,6 +17,11 @@ export default function OtaForm() {
 
   return (
     <form action={action} className="flex flex-col gap-5">
+      <p className="text-sm text-slate-500 -mb-2">
+        💡 Dùng khi khách đặt qua Agoda/Booking/Ctrip — tiền sàn đang giữ, khách sạn <b>chưa nhận tiền</b> (sau này
+        sàn mới chuyển về). Nếu khách đã chuyển khoản/trả tiền mặt trực tiếp cho khách sạn, ghi ở mục &quot;Thu
+        phòng&quot; thay vì đây.
+      </p>
       <div>
         <label className="field-label">Sàn OTA</label>
         <div className="grid grid-cols-2 gap-2">
