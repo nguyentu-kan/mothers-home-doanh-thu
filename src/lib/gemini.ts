@@ -96,14 +96,20 @@ export async function parseQuickCapture(input: {
 
   let response: Response | null = null;
   // Model mới nhất đôi khi quá tải tạm thời (503) — thử lại vài lần trước khi báo lỗi cho người dùng.
+  // Gemini đôi khi không phản hồi gì cả (không lỗi, không trả kết quả) — đặt giới hạn thời gian chờ
+  // để không bị treo "Đang đọc..." vô thời hạn.
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === "TimeoutError") {
+        return { error: "Gemini không phản hồi (quá thời gian chờ). Vui lòng thử lại." };
+      }
       return { error: "Không kết nối được tới Gemini. Kiểm tra lại mạng và thử lại." };
     }
     if (response.ok || response.status !== 503 || attempt === 3) break;
