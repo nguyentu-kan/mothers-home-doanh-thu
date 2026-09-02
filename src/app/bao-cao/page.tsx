@@ -5,6 +5,7 @@ import { getPeriodRange, type PeriodKey } from "@/lib/period";
 import { getCashbookSummary, getDailyRevenueSeries } from "@/lib/summary";
 import { formatVnd, formatDateVn } from "@/lib/format";
 import PeriodTabs from "@/components/PeriodTabs";
+import CustomDateRangeForm from "@/components/CustomDateRangeForm";
 
 export default async function BaoCaoPage({
   searchParams,
@@ -13,7 +14,9 @@ export default async function BaoCaoPage({
 }) {
   const params = await searchParams;
   const period = (typeof params.period === "string" ? params.period : "week") as PeriodKey;
-  const { from, to } = getPeriodRange(period);
+  const fromParam = typeof params.from === "string" ? params.from : undefined;
+  const toParam = typeof params.to === "string" ? params.to : undefined;
+  const { from, to } = getPeriodRange(period, fromParam, toParam);
 
   const [summary, series] = await Promise.all([getCashbookSummary(from, to), getDailyRevenueSeries(from, to)]);
 
@@ -24,6 +27,9 @@ export default async function BaoCaoPage({
         <h1 className="text-xl font-extrabold text-[#1B3A5C] dark:text-white">Báo cáo</h1>
         <ReportTabs active="/bao-cao" />
         <PeriodTabs basePath="/bao-cao" period={period} />
+        <div className="card">
+          <CustomDateRangeForm from={fromParam} to={toParam} />
+        </div>
 
         <div className="card">
           <div className="text-sm text-slate-500 mb-2">

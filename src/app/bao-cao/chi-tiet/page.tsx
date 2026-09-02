@@ -1,10 +1,11 @@
 import Header from "@/components/Header";
 import ReportTabs from "@/components/ReportTabs";
 import PeriodTabs from "@/components/PeriodTabs";
+import CustomDateRangeForm from "@/components/CustomDateRangeForm";
 import { getPeriodRange, type PeriodKey } from "@/lib/period";
 import { getActivityRows } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
-import { formatVnd, formatDateTimeVn } from "@/lib/format";
+import { formatVnd, formatDateTimeVn, formatDateVn } from "@/lib/format";
 
 export default async function ChiTietPage({
   searchParams,
@@ -14,14 +15,20 @@ export default async function ChiTietPage({
   const params = await searchParams;
   const period = (typeof params.period === "string" ? params.period : "week") as PeriodKey;
   const userId = typeof params.userId === "string" ? params.userId : "";
-  const { from, to } = getPeriodRange(period);
+  const fromParam = typeof params.from === "string" ? params.from : undefined;
+  const toParam = typeof params.to === "string" ? params.to : undefined;
+  const { from, to } = getPeriodRange(period, fromParam, toParam);
 
   const [rows, users] = await Promise.all([
     getActivityRows(from, to, userId || undefined),
     prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
-  const exportHref = `/bao-cao/export?period=${period}${userId ? `&userId=${userId}` : ""}`;
+  const rangeQuery =
+    period === "custom" && fromParam && toParam
+      ? `period=custom&from=${fromParam}&to=${toParam}`
+      : `period=${period}`;
+  const exportHref = `/bao-cao/export?${rangeQuery}${userId ? `&userId=${userId}` : ""}`;
 
   return (
     <>
@@ -30,9 +37,17 @@ export default async function ChiTietPage({
         <h1 className="text-xl font-extrabold text-[#1B3A5C] dark:text-white">Báo cáo</h1>
         <ReportTabs active="/bao-cao/chi-tiet" />
         <PeriodTabs basePath="/bao-cao/chi-tiet" period={period} />
+        <div className="card">
+          <CustomDateRangeForm from={fromParam} to={toParam} />
+        </div>
+        <div className="text-sm text-slate-500">
+          {formatDateVn(from)} – {formatDateVn(to)}
+        </div>
 
         <form method="get" className="flex gap-2 items-center">
           <input type="hidden" name="period" value={period} />
+          {period === "custom" && fromParam && <input type="hidden" name="from" value={fromParam} />}
+          {period === "custom" && toParam && <input type="hidden" name="to" value={toParam} />}
           <select name="userId" defaultValue={userId} className="field-input flex-1">
             <option value="">-- Tất cả người ghi --</option>
             {users.map((u) => (

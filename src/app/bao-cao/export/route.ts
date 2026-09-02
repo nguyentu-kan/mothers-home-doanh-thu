@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const period = (searchParams.get("period") || "week") as PeriodKey;
   const userId = searchParams.get("userId") || undefined;
-  const { from, to } = getPeriodRange(period);
+  const fromParam = searchParams.get("from") || undefined;
+  const toParam = searchParams.get("to") || undefined;
+  const { from, to } = getPeriodRange(period, fromParam, toParam);
 
   const rows = await getActivityRows(from, to, userId);
 
