@@ -99,6 +99,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
         amount: s.amount,
         note: "",
         method: s.paymentMethod,
+        category: s.category,
         roomOrGuest: s.roomOrGuest,
         content: s.content,
       },

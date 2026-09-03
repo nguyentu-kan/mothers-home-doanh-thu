@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateActivityRowAction, type UpdateActivityRowState } from "./actions";
+import { updateActivityRowAction, type UpdateActivityRowState, type TargetType } from "./actions";
 import type { ActivityRow } from "@/lib/activity";
 import { formatVnd, formatDateTimeVn } from "@/lib/format";
 import { format } from "date-fns";
@@ -29,6 +29,20 @@ const TRANSFER_ACCOUNT_OPTIONS = [
   { value: "TIEN", label: "TK Tiên" },
   { value: "VAN", label: "TK Cô Vân" },
 ];
+const LOAI_KHOAN_OPTIONS: { value: TargetType; label: string }[] = [
+  { value: "ROOM", label: "💰 Thu phòng" },
+  { value: "OTA", label: "🌐 OTA công nợ" },
+  { value: "EXPENSE", label: "🧾 Chi phí" },
+  { value: "SERVICE_CA_PHE", label: "☕ Cà phê" },
+  { value: "SERVICE_SPA", label: "💆 Spa" },
+  { value: "PENDING", label: "📋 Còn phải thu" },
+  { value: "OWNER_TRANSFER", label: "🔁 Chuyển tiếp cho Cô Vân" },
+];
+
+function initialTargetType(row: ActivityRow): TargetType {
+  if (row.kind === "SERVICE") return row.editData.category === "SPA" ? "SERVICE_SPA" : "SERVICE_CA_PHE";
+  return row.kind;
+}
 
 export default function ChiTietTable({ rows }: { rows: ActivityRow[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -132,6 +146,11 @@ function EditForm({ row, onSaved }: { row: ActivityRow; onSaved: () => void }) {
   const boundAction = updateActivityRowAction.bind(null, row.kind, row.id);
   const [state, action, pending] = useActionState<UpdateActivityRowState, FormData>(boundAction, undefined);
   const e = row.editData;
+  const [targetType, setTargetType] = useState<TargetType>(initialTargetType(row));
+
+  const isService = targetType === "SERVICE_CA_PHE" || targetType === "SERVICE_SPA";
+  const changedType = isService ? row.kind !== "SERVICE" : targetType !== row.kind;
+  const noteOrContent = e.note || e.content || "";
 
   useEffect(() => {
     if (state && "ok" in state && state.ok) {
@@ -147,6 +166,28 @@ function EditForm({ row, onSaved }: { row: ActivityRow; onSaved: () => void }) {
       }}
       className="flex flex-col gap-2 max-w-md"
     >
+      <div>
+        <label className="field-label text-xs">Loại khoản</label>
+        <select
+          value={targetType}
+          onChange={(ev) => setTargetType(ev.target.value as TargetType)}
+          className="field-input"
+        >
+          {LOAI_KHOAN_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <input type="hidden" name="targetType" value={targetType} />
+      </div>
+      {changedType && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          ⚠️ Ghi nhầm loại — đổi lại sẽ chuyển dòng này sang đúng danh sách (số tiền/ghi chú giữ nguyên, người ghi gốc
+          không đổi).
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="field-label text-xs">Ngày</label>
@@ -158,7 +199,7 @@ function EditForm({ row, onSaved }: { row: ActivityRow; onSaved: () => void }) {
         </div>
       </div>
 
-      {row.kind === "SERVICE" && (
+      {isService && (
         <>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -167,47 +208,77 @@ function EditForm({ row, onSaved }: { row: ActivityRow; onSaved: () => void }) {
             </div>
             <div>
               <label className="field-label text-xs">Nội dung</label>
-              <input name="content" defaultValue={e.content} className="field-input" />
+              <input name="content" defaultValue={e.content ?? noteOrContent} className="field-input" />
             </div>
           </div>
-          <SelectField label="Hình thức" name="method" defaultValue={e.method} options={SERVICE_METHOD_OPTIONS} />
+          <SelectField
+            label="Hình thức"
+            name="method"
+            defaultValue={row.kind === "SERVICE" ? e.method : "TIEN_MAT"}
+            options={SERVICE_METHOD_OPTIONS}
+          />
         </>
       )}
 
-      {row.kind === "ROOM" && (
+      {targetType === "ROOM" && (
         <>
-          <SelectField label="Hình thức" name="method" defaultValue={e.method} options={METHOD_OPTIONS} />
+          <SelectField
+            label="Hình thức"
+            name="method"
+            defaultValue={row.kind === "ROOM" ? e.method : "TIEN_MAT"}
+            options={METHOD_OPTIONS}
+          />
           <SelectField
             label="Tài khoản nhận (nếu chuyển khoản)"
             name="transferAccount"
-            defaultValue={e.transferAccount ?? ""}
+            defaultValue={row.kind === "ROOM" ? e.transferAccount ?? "" : ""}
             options={TRANSFER_ACCOUNT_OPTIONS}
           />
-          <NoteField defaultValue={e.note} />
+          <NoteField defaultValue={noteOrContent} />
         </>
       )}
 
-      {row.kind === "OTA" && (
+      {targetType === "OTA" && (
         <>
-          <SelectField label="Sàn OTA" name="platform" defaultValue={e.platform} options={PLATFORM_OPTIONS} />
-          <NoteField defaultValue={e.note} />
+          <SelectField
+            label="Sàn OTA"
+            name="platform"
+            defaultValue={row.kind === "OTA" ? e.platform : "KHAC"}
+            options={PLATFORM_OPTIONS}
+          />
+          <NoteField defaultValue={noteOrContent} />
         </>
       )}
 
-      {row.kind === "EXPENSE" && (
+      {targetType === "EXPENSE" && (
         <>
-          <SelectField label="Hạng mục" name="category" defaultValue={e.category} options={CATEGORY_OPTIONS} />
-          <SelectField label="Hình thức" name="method" defaultValue={e.method} options={METHOD_OPTIONS} />
-          <NoteField label="Lý do chi" defaultValue={e.note} />
+          <SelectField
+            label="Hạng mục"
+            name="category"
+            defaultValue={row.kind === "EXPENSE" ? e.category : "KHAC"}
+            options={CATEGORY_OPTIONS}
+          />
+          <SelectField
+            label="Hình thức"
+            name="method"
+            defaultValue={row.kind === "EXPENSE" ? e.method : "TIEN_MAT"}
+            options={METHOD_OPTIONS}
+          />
+          <NoteField label="Lý do chi" defaultValue={noteOrContent} />
         </>
       )}
 
-      {row.kind === "PENDING" && <NoteField defaultValue={e.note} />}
+      {targetType === "PENDING" && <NoteField defaultValue={noteOrContent} />}
 
-      {row.kind === "OWNER_TRANSFER" && (
+      {targetType === "OWNER_TRANSFER" && (
         <>
-          <SelectField label="Hình thức" name="method" defaultValue={e.method} options={METHOD_OPTIONS} />
-          <NoteField defaultValue={e.note} />
+          <SelectField
+            label="Hình thức"
+            name="method"
+            defaultValue={row.kind === "OWNER_TRANSFER" ? e.method : "CHUYEN_KHOAN"}
+            options={METHOD_OPTIONS}
+          />
+          <NoteField defaultValue={noteOrContent} />
         </>
       )}
 
