@@ -2,10 +2,11 @@ import Header from "@/components/Header";
 import ReportTabs from "@/components/ReportTabs";
 import PeriodTabs from "@/components/PeriodTabs";
 import CustomDateRangeForm from "@/components/CustomDateRangeForm";
+import ChiTietTable from "./ChiTietTable";
 import { getPeriodRange, type PeriodKey } from "@/lib/period";
 import { getActivityRows } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
-import { formatVnd, formatDateTimeVn, formatDateVn } from "@/lib/format";
+import { formatDateVn } from "@/lib/format";
 
 export default async function ChiTietPage({
   searchParams,
@@ -69,59 +70,7 @@ export default async function ChiTietPage({
           tính.
         </p>
 
-        <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b border-black/10 dark:border-white/10">
-                <th className="py-2 pr-2">Thời gian</th>
-                <th className="py-2 pr-2">Loại</th>
-                <th className="py-2 pr-2">Nội dung</th>
-                <th className="py-2 pr-2 text-right">Số tiền</th>
-                <th className="py-2 pr-2">Người ghi</th>
-                <th className="py-2 pr-2">Chứng từ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="border-b border-black/5 dark:border-white/5">
-                  <td className="py-2 pr-2 whitespace-nowrap">{formatDateTimeVn(r.time)}</td>
-                  <td className="py-2 pr-2 whitespace-nowrap">{r.type}</td>
-                  <td className="py-2 pr-2">{r.description}</td>
-                  <td className={`py-2 pr-2 text-right whitespace-nowrap ${r.amount < 0 ? "text-red-600" : ""}`}>
-                    {formatVnd(r.amount)}
-                  </td>
-                  <td className="py-2 pr-2 whitespace-nowrap">{r.recordedByName}</td>
-                  <td className="py-2 pr-2 whitespace-nowrap">
-                    {r.attachmentUrls.length > 0 ? (
-                      <span className="flex gap-2">
-                        {r.attachmentUrls.map((url, j) => (
-                          <a
-                            key={url}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 underline font-semibold"
-                          >
-                            📎 Ảnh {r.attachmentUrls.length > 1 ? j + 1 : ""}
-                          </a>
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-4 text-center text-slate-500">
-                    Không có dữ liệu trong khoảng thời gian này.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ChiTietTable rows={rows} />
       </main>
     </>
   );

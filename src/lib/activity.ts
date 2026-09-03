@@ -1,6 +1,22 @@
 import { prisma } from "@/lib/prisma";
 
+export type ActivityRowKind = "SERVICE" | "ROOM" | "OTA" | "EXPENSE" | "PENDING" | "OWNER_TRANSFER";
+
+// Dữ liệu gốc (chưa định dạng) cần để hiện sẵn trong form sửa — chỉ điền field liên quan tới `kind`.
+export type ActivityEditData = {
+  amount: number;
+  note: string;
+  method?: string;
+  category?: string;
+  platform?: string;
+  transferAccount?: string | null;
+  roomOrGuest?: string;
+  content?: string;
+};
+
 export type ActivityRow = {
+  id: string;
+  kind: ActivityRowKind;
   time: Date;
   type: string;
   description: string;
@@ -8,6 +24,7 @@ export type ActivityRow = {
   method: string;
   recordedByName: string;
   attachmentUrls: string[];
+  editData: ActivityEditData;
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -69,6 +86,8 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
 
   const rows: ActivityRow[] = [
     ...services.map((s) => ({
+      id: s.id,
+      kind: "SERVICE" as const,
       time: s.time,
       type: s.category === "CA_PHE" ? "Cà phê" : "Spa",
       description: `${s.content} (SL ${s.quantity}) — ${s.roomOrGuest} — ${PAYMENT_LABEL[s.paymentMethod]}`,
@@ -76,11 +95,20 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: PAYMENT_LABEL[s.paymentMethod],
       recordedByName: s.recordedByUser.name,
       attachmentUrls: [],
+      editData: {
+        amount: s.amount,
+        note: "",
+        method: s.paymentMethod,
+        roomOrGuest: s.roomOrGuest,
+        content: s.content,
+      },
     })),
     ...rooms.map((r) => {
       const accountTag =
         r.transferAccount === "TIEN" ? " (TK Tiên)" : r.transferAccount === "VAN" ? " (TK Cô Vân)" : "";
       return {
+        id: r.id,
+        kind: "ROOM" as const,
         time: r.time,
         type: "Thu phòng",
         description: (r.note || "") + accountTag,
@@ -88,9 +116,17 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
         method: PAYMENT_LABEL[r.method] + accountTag,
         recordedByName: r.recordedByUser.name,
         attachmentUrls: r.attachmentUrls,
+        editData: {
+          amount: r.amount,
+          note: r.note || "",
+          method: r.method,
+          transferAccount: r.transferAccount,
+        },
       };
     }),
     ...otas.map((o) => ({
+      id: o.id,
+      kind: "OTA" as const,
       time: o.date,
       type: "OTA công nợ",
       description: `${PLATFORM_LABEL[o.platform]} — ${o.note || ""}`,
@@ -98,8 +134,15 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: "Công nợ",
       recordedByName: o.recordedByUser.name,
       attachmentUrls: o.attachmentUrls,
+      editData: {
+        amount: o.amount,
+        note: o.note || "",
+        platform: o.platform,
+      },
     })),
     ...expenses.map((e) => ({
+      id: e.id,
+      kind: "EXPENSE" as const,
       time: e.time,
       type: "Chi phí",
       description: `${EXPENSE_CATEGORY_LABEL[e.category]} — ${e.note}`,
@@ -107,8 +150,16 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: PAYMENT_LABEL[e.method],
       recordedByName: e.recordedByUser.name,
       attachmentUrls: e.attachmentUrls,
+      editData: {
+        amount: e.amount,
+        note: e.note,
+        method: e.method,
+        category: e.category,
+      },
     })),
     ...pendingReceivables.map((p) => ({
+      id: p.id,
+      kind: "PENDING" as const,
       time: p.time,
       type: "Còn phải thu",
       description: (p.note || "") + (p.status === "COLLECTED" ? " (đã thu)" : " (chưa thu)"),
@@ -116,8 +167,14 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: p.status === "COLLECTED" ? "Đã thu" : "Chưa thu",
       recordedByName: p.recordedByUser.name,
       attachmentUrls: [],
+      editData: {
+        amount: p.amount,
+        note: p.note || "",
+      },
     })),
     ...ownerTransfers.map((t) => ({
+      id: t.id,
+      kind: "OWNER_TRANSFER" as const,
       time: t.time,
       type: "Chuyển tiếp cho Cô Vân",
       description: t.note || "",
@@ -125,6 +182,11 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       method: t.method === "TIEN_MAT" ? "Tiền mặt" : "Chuyển khoản",
       recordedByName: t.recordedByUser.name,
       attachmentUrls: t.attachmentUrls,
+      editData: {
+        amount: t.amount,
+        note: t.note || "",
+        method: t.method,
+      },
     })),
   ];
 
