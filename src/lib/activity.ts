@@ -72,8 +72,10 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       include: { recordedByUser: true },
       orderBy: { time: "desc" },
     }),
+    // Chỉ lấy khoản CHƯA thu — khoản đã thu thì tiền thật đã có 1 dòng Thu phòng riêng (ghi chú
+    // "đã thu khoản còn nợ"), giữ cả 2 dòng ở đây sẽ trông như bị tính trùng dù tổng vẫn đúng.
     prisma.pendingReceivable.findMany({
-      where: { time: timeFilter, ...userFilter },
+      where: { time: timeFilter, ...userFilter, status: "PENDING" },
       include: { recordedByUser: true },
       orderBy: { time: "desc" },
     }),
@@ -163,9 +165,9 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       kind: "PENDING" as const,
       time: p.time,
       type: "Còn phải thu",
-      description: (p.note || "") + (p.status === "COLLECTED" ? " (đã thu)" : " (chưa thu)"),
+      description: (p.note || "") + " (chưa thu)",
       amount: p.amount,
-      method: p.status === "COLLECTED" ? "Đã thu" : "Chưa thu",
+      method: "Chưa thu",
       recordedByName: p.recordedByUser.name,
       attachmentUrls: [],
       editData: {
