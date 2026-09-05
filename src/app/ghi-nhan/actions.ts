@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { isManager } from "@/lib/permissions";
+import { isAppAdmin } from "@/lib/permissions";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 import { revalidatePath } from "next/cache";
 import { startOfDay } from "date-fns";
@@ -69,7 +69,7 @@ export async function createServiceRecordAction(
 }
 
 // Cho tự xoá lượt ghi của chính mình trong ngày hôm nay (sửa sai bằng cách xoá rồi ghi lại) —
-// Quản lý/Chủ sở hữu được xoá bất kỳ lượt nào trong ngày để hỗ trợ nhân viên sửa lỗi.
+// chủ app (Ngọc Tiên) được xoá bất kỳ lượt nào trong ngày để hỗ trợ nhân viên sửa lỗi.
 export async function deleteServiceRecordAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireSession();
 
@@ -77,7 +77,7 @@ export async function deleteServiceRecordAction(id: string): Promise<{ ok: true 
   if (!record) {
     return { ok: false, error: "Không tìm thấy lượt ghi này." };
   }
-  if (record.recordedByUserId !== session.userId && !isManager(session.role)) {
+  if (record.recordedByUserId !== session.userId && !isAppAdmin(session)) {
     return { ok: false, error: "Bạn không có quyền xoá lượt ghi này." };
   }
   if (record.time < startOfDay(new Date())) {

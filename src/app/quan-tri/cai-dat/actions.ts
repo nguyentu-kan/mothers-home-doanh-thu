@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { isManager } from "@/lib/permissions";
+import { isAppAdmin } from "@/lib/permissions";
 
 export async function updateSettingsAction(formData: FormData) {
   const session = await requireSession();
-  if (!isManager(session.role)) return;
+  if (!isAppAdmin(session)) return;
 
   const warning = String(formData.get("cash_warning_threshold") || "3000000");
   const danger = String(formData.get("cash_danger_threshold") || "5000000");

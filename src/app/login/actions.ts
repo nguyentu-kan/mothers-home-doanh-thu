@@ -30,6 +30,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   session.username = user.username;
   session.role = user.role;
   session.canManageCashbook = user.canManageCashbook;
+  session.isAppAdmin = user.isAppAdmin;
   await session.save();
 
   redirect("/");

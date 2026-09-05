@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { canManageCashbook, isManager } from "@/lib/permissions";
+import { canManageCashbook, isAppAdmin } from "@/lib/permissions";
 import { uploadAttachments } from "@/lib/supabase";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 import { startOfDay } from "date-fns";
@@ -61,7 +61,7 @@ export async function deleteOwnerTransferAction(id: string): Promise<{ ok: true 
 
   const record = await prisma.ownerTransfer.findUnique({ where: { id } });
   if (!record) return { ok: false, error: "Không tìm thấy khoản này." };
-  if (record.recordedByUserId !== session.userId && !isManager(session.role)) {
+  if (record.recordedByUserId !== session.userId && !isAppAdmin(session)) {
     return { ok: false, error: "Bạn không có quyền xoá khoản này." };
   }
   if (record.time < startOfDay(new Date())) {

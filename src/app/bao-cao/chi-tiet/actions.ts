@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { isManager } from "@/lib/permissions";
+import { isAppAdmin } from "@/lib/permissions";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 import type { ActivityRowKind } from "@/lib/activity";
 
@@ -18,9 +18,11 @@ function targetTypeToKind(targetType: TargetType): ActivityRowKind {
   return targetType;
 }
 
+// Chỉ chủ app thật sự (Ngọc Tiên) được sửa — Cô Vân/Thầy Thành xem được trang này nhưng không
+// được sửa (isManager thôi không đủ, phải là isAppAdmin).
 async function requireManager() {
   const session = await requireSession();
-  if (!isManager(session.role)) {
+  if (!isAppAdmin(session)) {
     throw new Error("FORBIDDEN");
   }
   return session;

@@ -44,8 +44,9 @@ function initialTargetType(row: ActivityRow): TargetType {
   return row.kind;
 }
 
-export default function ChiTietTable({ rows }: { rows: ActivityRow[] }) {
+export default function ChiTietTable({ rows, canEdit }: { rows: ActivityRow[]; canEdit: boolean }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const colCount = canEdit ? 7 : 6;
 
   return (
     <div className="card overflow-x-auto">
@@ -58,7 +59,7 @@ export default function ChiTietTable({ rows }: { rows: ActivityRow[] }) {
             <th className="py-2 pr-2 text-right">Số tiền</th>
             <th className="py-2 pr-2">Người ghi</th>
             <th className="py-2 pr-2">Chứng từ</th>
-            <th className="py-2 pr-2"></th>
+            {canEdit && <th className="py-2 pr-2"></th>}
           </tr>
         </thead>
         <tbody>
@@ -66,6 +67,7 @@ export default function ChiTietTable({ rows }: { rows: ActivityRow[] }) {
             <RowGroup
               key={`${r.kind}-${r.id}`}
               row={r}
+              canEdit={canEdit}
               editing={editingId === `${r.kind}-${r.id}`}
               onToggle={() => setEditingId((cur) => (cur === `${r.kind}-${r.id}` ? null : `${r.kind}-${r.id}`))}
               onSaved={() => setEditingId(null)}
@@ -73,7 +75,7 @@ export default function ChiTietTable({ rows }: { rows: ActivityRow[] }) {
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={7} className="py-4 text-center text-slate-500">
+              <td colSpan={colCount} className="py-4 text-center text-slate-500">
                 Không có dữ liệu trong khoảng thời gian này.
               </td>
             </tr>
@@ -86,11 +88,13 @@ export default function ChiTietTable({ rows }: { rows: ActivityRow[] }) {
 
 function RowGroup({
   row,
+  canEdit,
   editing,
   onToggle,
   onSaved,
 }: {
   row: ActivityRow;
+  canEdit: boolean;
   editing: boolean;
   onToggle: () => void;
   onSaved: () => void;
@@ -124,13 +128,15 @@ function RowGroup({
             <span className="text-slate-400">—</span>
           )}
         </td>
-        <td className="py-2 pr-2 whitespace-nowrap">
-          <button type="button" onClick={onToggle} className="text-sm font-semibold text-[#1B3A5C] dark:text-blue-300">
-            {editing ? "Đóng" : "✏️ Sửa"}
-          </button>
-        </td>
+        {canEdit && (
+          <td className="py-2 pr-2 whitespace-nowrap">
+            <button type="button" onClick={onToggle} className="text-sm font-semibold text-[#1B3A5C] dark:text-blue-300">
+              {editing ? "Đóng" : "✏️ Sửa"}
+            </button>
+          </td>
+        )}
       </tr>
-      {editing && (
+      {editing && canEdit && (
         <tr className="border-b border-black/5 dark:border-white/5 bg-slate-50 dark:bg-white/5">
           <td colSpan={7} className="p-3">
             <EditForm row={row} onSaved={onSaved} />

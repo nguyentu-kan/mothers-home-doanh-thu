@@ -6,6 +6,8 @@ import ChiTietTable from "./ChiTietTable";
 import { getPeriodRange, type PeriodKey } from "@/lib/period";
 import { getActivityRows } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
+import { isAppAdmin } from "@/lib/permissions";
 import { formatDateVn } from "@/lib/format";
 
 export default async function ChiTietPage({
@@ -20,10 +22,12 @@ export default async function ChiTietPage({
   const toParam = typeof params.to === "string" ? params.to : undefined;
   const { from, to } = getPeriodRange(period, fromParam, toParam);
 
-  const [rows, users] = await Promise.all([
+  const [rows, users, session] = await Promise.all([
     getActivityRows(from, to, userId || undefined),
     prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getSession(),
   ]);
+  const canEdit = isAppAdmin(session);
 
   const rangeQuery =
     period === "custom" && fromParam && toParam
@@ -70,7 +74,7 @@ export default async function ChiTietPage({
           tính.
         </p>
 
-        <ChiTietTable rows={rows} />
+        <ChiTietTable rows={rows} canEdit={canEdit} />
       </main>
     </>
   );

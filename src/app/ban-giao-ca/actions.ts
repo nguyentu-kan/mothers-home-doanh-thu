@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { isManager } from "@/lib/permissions";
+import { isAppAdmin } from "@/lib/permissions";
 import { getCashBaseline, sumCashSince, checkCashAndMaybeAlert } from "@/lib/cash";
 
 export type HandoverFormState = { error: string } | undefined;
@@ -76,7 +76,7 @@ export async function confirmReceiveAction(formData: FormData) {
   const handover = await prisma.shiftHandover.findUnique({ where: { id: handoverId } });
   if (!handover) return;
 
-  const allowed = handover.receiverUserId === session.userId || isManager(session.role);
+  const allowed = handover.receiverUserId === session.userId || isAppAdmin(session);
   if (!allowed) return;
 
   await prisma.shiftHandover.update({

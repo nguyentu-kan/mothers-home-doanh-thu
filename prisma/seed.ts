@@ -9,6 +9,7 @@ async function upsertUser(data: {
   password: string;
   role: "NHAN_VIEN" | "QUAN_LY" | "CHU_SO_HUU";
   canManageCashbook?: boolean;
+  isAppAdmin?: boolean;
 }) {
   const passwordHash = await bcrypt.hash(data.password, 10);
   await prisma.user.upsert({
@@ -20,6 +21,7 @@ async function upsertUser(data: {
       passwordHash,
       role: data.role,
       canManageCashbook: data.canManageCashbook ?? false,
+      isAppAdmin: data.isAppAdmin ?? false,
     },
   });
 }
@@ -35,6 +37,7 @@ async function main() {
     password: "1234",
     role: "QUAN_LY",
     canManageCashbook: true,
+    isAppAdmin: true,
   });
   await upsertUser({ name: "Chú Toàn", username: "toan", password: "1234", role: "NHAN_VIEN" });
   await upsertUser({ name: "KTV A", username: "ktv", password: "1234", role: "NHAN_VIEN" });

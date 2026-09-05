@@ -71,6 +71,9 @@ model User {
   passwordHash      String
   role              Role     @default(NHAN_VIEN)
   canManageCashbook Boolean  @default(false)
+  // Người duy nhất thật sự quản lý app (Ngọc Tiên) — có toàn quyền: Sổ Thu Chi, Báo cáo, Quản trị,
+  // sửa/xoá khoản bất kỳ ai. Quản lý/Chủ sở hữu khác (Cô Vân, Thầy Thành) chỉ xem được Báo cáo.
+  isAppAdmin        Boolean  @default(false)
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
 

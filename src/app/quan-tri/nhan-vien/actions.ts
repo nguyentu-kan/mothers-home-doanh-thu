@@ -3,14 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { isManager } from "@/lib/permissions";
+import { isAppAdmin } from "@/lib/permissions";
 import { hashPassword } from "@/lib/auth";
 
 export type UserFormState = { error: string } | undefined;
 
 async function requireManager() {
   const session = await requireSession();
-  if (!isManager(session.role)) throw new Error("FORBIDDEN");
+  if (!isAppAdmin(session)) throw new Error("FORBIDDEN");
   return session;
 }
 

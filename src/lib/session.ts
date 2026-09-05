@@ -8,6 +8,7 @@ export type SessionData = {
   username?: string;
   role?: Role;
   canManageCashbook?: boolean;
+  isAppAdmin?: boolean;
 };
 
 export const sessionOptions: SessionOptions = {

@@ -20,12 +20,23 @@ export async function proxy(request: NextRequest) {
   }
 
   const isManager = session.role === "QUAN_LY" || session.role === "CHU_SO_HUU";
+  const isAppAdmin = Boolean(session.isAppAdmin);
 
-  if ((pathname.startsWith("/bao-cao") || pathname.startsWith("/quan-tri")) && !isManager) {
+  // Quản lý/Chủ sở hữu không phải chủ app thật sự (Cô Vân, Thầy Thành) chỉ được xem Báo cáo — chặn
+  // hết các trang khác (kể cả trang chủ) để tránh họ tự tay sửa số liệu.
+  if (isManager && !isAppAdmin && !pathname.startsWith("/bao-cao")) {
+    return NextResponse.redirect(new URL("/bao-cao", request.url));
+  }
+
+  if (pathname.startsWith("/bao-cao") && !isManager) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (pathname.startsWith("/so-thu-chi") && !isManager && !session.canManageCashbook) {
+  if (pathname.startsWith("/quan-tri") && !isAppAdmin) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  if (pathname.startsWith("/so-thu-chi") && !isAppAdmin && !session.canManageCashbook) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

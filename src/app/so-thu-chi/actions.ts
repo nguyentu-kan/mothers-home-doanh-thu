@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { canManageCashbook, isManager } from "@/lib/permissions";
+import { canManageCashbook, isAppAdmin } from "@/lib/permissions";
 import { uploadAttachments } from "@/lib/supabase";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
 import { startOfDay } from "date-fns";
@@ -143,12 +143,12 @@ export async function addExpenseAction(
 type DeleteResult = { ok: true } | { ok: false; error: string };
 
 // Chỉ tự xoá được khoản của chính mình, trong hôm nay — sửa sai bằng cách xoá rồi ghi lại.
-// Quản lý/Chủ sở hữu xoá được khoản của bất kỳ ai trong ngày để hỗ trợ sửa lỗi.
+// Chủ app (Ngọc Tiên) xoá được khoản của bất kỳ ai trong ngày để hỗ trợ sửa lỗi.
 async function checkDeletePermission(
   session: Awaited<ReturnType<typeof requireCashbookAccess>>,
   record: { recordedByUserId: string; time: Date }
 ): Promise<DeleteResult> {
-  if (record.recordedByUserId !== session.userId && !isManager(session.role)) {
+  if (record.recordedByUserId !== session.userId && !isAppAdmin(session)) {
     return { ok: false, error: "Bạn không có quyền xoá khoản này." };
   }
   if (record.time < startOfDay(new Date())) {

@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
-import { isManager } from "@/lib/permissions";
+import { isAppAdmin } from "@/lib/permissions";
 
 export type MenuItemFormState = { error: string } | undefined;
 
 async function requireManager() {
   const session = await requireSession();
-  if (!isManager(session.role)) throw new Error("FORBIDDEN");
+  if (!isAppAdmin(session)) throw new Error("FORBIDDEN");
 }
 
 export async function createMenuItemAction(
