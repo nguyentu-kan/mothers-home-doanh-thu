@@ -185,6 +185,9 @@ model OwnerTransfer {
   method        CashMethod @default(CHUYEN_KHOAN)
   note          String?
   attachmentUrls String[] @default([])
+  // Mã giao dịch AI đọc được từ ảnh chuyển khoản (nếu khoản này tạo/gắn từ Kho ảnh chứng từ) — dùng
+  // để phát hiện trùng khi up ảnh mới, tránh ghi đúp cùng 1 giao dịch thật.
+  transactionCode String?
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
@@ -206,6 +209,12 @@ model UnassignedAttachment {
   // AI đọc thử ảnh (nếu là ảnh chuyển khoản) để gợi ý sẵn số tiền — chỉ là gợi ý, không bắt buộc
   // đúng, người dùng tự xác nhận/sửa khi gắn vào khoản hoặc tạo khoản mới.
   suggestedAmount Int?
+  // Mã giao dịch AI đọc được trên ảnh — dùng để phát hiện trùng (cùng mã đã có ảnh/khoản khác)
+  // trước khi lưu, tránh ghi đúp cùng 1 giao dịch thật do lỡ up ảnh 2 lần.
+  transactionCode String?
+  // Nếu khác null: lúc up, mã giao dịch của ảnh này trùng với 1 ảnh/khoản đã có — hiển thị cảnh báo
+  // ngay trên ảnh này cho đến khi người dùng bấm "đã kiểm tra" (xoá cảnh báo, không xoá ảnh).
+  duplicateWarning String?
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   uploadUnassignedAttachmentsAction,
   deleteUnassignedAttachmentAction,
+  acknowledgeDuplicateWarningAction,
   linkAttachmentToTransferAction,
   createTransferFromAttachmentAction,
   type UploadState,
@@ -19,6 +20,8 @@ type Attachment = {
   note: string | null;
   time: Date;
   suggestedAmount: number | null;
+  transactionCode: string | null;
+  duplicateWarning: string | null;
   recordedByName: string;
 };
 
@@ -87,6 +90,8 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
   const [mode, setMode] = useState<"NONE" | "LINK" | "CREATE">("NONE");
   const [deleting, startDeleteTransition] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [acking, startAckTransition] = useTransition();
+  const [ackError, setAckError] = useState<string | null>(null);
   const router = useRouter();
 
   function handleDelete() {
@@ -102,8 +107,34 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
     });
   }
 
+  function handleAcknowledge() {
+    setAckError(null);
+    startAckTransition(async () => {
+      const result = await acknowledgeDuplicateWarningAction(attachment.id);
+      if (!result.ok) {
+        setAckError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <div className="card flex flex-col gap-2">
+      {attachment.duplicateWarning && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 p-2 flex flex-col gap-1.5">
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">⚠️ {attachment.duplicateWarning}</p>
+          {ackError && <p className="text-xs text-red-700 font-semibold">{ackError}</p>}
+          <button
+            type="button"
+            onClick={handleAcknowledge}
+            disabled={acking}
+            className="self-start rounded-lg px-2.5 py-1 text-xs font-semibold bg-amber-600 text-white disabled:opacity-50"
+          >
+            {acking ? "..." : "Đã kiểm tra, vẫn giữ ảnh này"}
+          </button>
+        </div>
+      )}
       <div className="flex gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={attachment.url} alt="Ảnh chứng từ" className="w-20 h-20 object-cover rounded-lg flex-none" />
@@ -116,6 +147,9 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
             <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
               🤖 AI đọc được: {formatVnd(attachment.suggestedAmount)}
             </div>
+          )}
+          {attachment.transactionCode != null && (
+            <div className="text-xs text-slate-500">Mã GD: {attachment.transactionCode}</div>
           )}
           <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline font-semibold">
             Xem ảnh gốc

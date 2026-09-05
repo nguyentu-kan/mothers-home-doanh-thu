@@ -32,6 +32,8 @@ export default async function KhoAnhPage() {
             note: a.note,
             time: a.time,
             suggestedAmount: a.suggestedAmount,
+            transactionCode: a.transactionCode,
+            duplicateWarning: a.duplicateWarning,
             recordedByName: a.recordedByUser.name,
           }))}
           transfers={transfers.map((t) => ({

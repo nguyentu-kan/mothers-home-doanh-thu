@@ -193,16 +193,17 @@ export async function parseQuickCapture(input: {
   return { entries };
 }
 
-export type TransferInfo = { amount: number | null; date: string | null };
+export type TransferInfo = { amount: number | null; date: string | null; transactionCode: string | null };
 
 const TRANSFER_INFO_PROMPT = `Ảnh này CÓ THỂ là ảnh chụp màn hình xác nhận chuyển khoản/giao dịch thành công từ app ngân hàng hoặc ví điện tử Việt Nam.
 Nếu đúng vậy, đọc và trả về:
 - amount: số tiền giao dịch, đơn vị VNĐ, số nguyên (vd 2000000). Nếu không đọc được, để null.
 - date: ngày giao dịch hiển thị trên ảnh (thường ở dòng "Thời gian"/"Thời điểm giao dịch"), đúng định dạng "YYYY-MM-DD". Ký hiệu Việt Nam luôn là ngày/tháng. Nếu không đọc được ngày rõ ràng, để null.
-Nếu ảnh KHÔNG phải ảnh chuyển khoản (vd ảnh sổ tay viết tay, ảnh khác), trả về amount: null, date: null.
+- transactionCode: mã giao dịch/mã tham chiếu hiển thị trên ảnh (thường ở dòng "Mã giao dịch"/"Mã tham chiếu"/"Mã GD"/"Transaction ID", thường là chuỗi số hoặc chữ+số). Nếu không thấy, để null.
+Nếu ảnh KHÔNG phải ảnh chuyển khoản (vd ảnh sổ tay viết tay, ảnh khác), trả về amount: null, date: null, transactionCode: null.
 Chỉ trả về đúng 1 object JSON, không giải thích gì thêm.`;
 
-// Đọc nhanh 1 ảnh riêng lẻ (dùng cho Kho ảnh chứng từ) để gợi ý sẵn ngày/số tiền giao dịch — AI đọc
+// Đọc nhanh 1 ảnh riêng lẻ (dùng cho Kho ảnh chứng từ) để gợi ý sẵn ngày/số tiền/mã giao dịch — AI đọc
 // được gì thì gợi ý đó, không bắt buộc đúng 100%, người dùng vẫn xác nhận lại trước khi lưu thành khoản.
 export async function extractTransferInfo(image: { data: string; mimeType: string }): Promise<TransferInfo> {
   const parts: Record<string, unknown>[] = [
@@ -214,15 +215,17 @@ export async function extractTransferInfo(image: { data: string; mimeType: strin
     properties: {
       amount: { type: "INTEGER", nullable: true },
       date: { type: "STRING", nullable: true },
+      transactionCode: { type: "STRING", nullable: true },
     },
   };
 
   const result = await callGemini(parts, schema);
-  if ("error" in result) return { amount: null, date: null };
+  if ("error" in result) return { amount: null, date: null, transactionCode: null };
 
-  const data = result.data as { amount?: number | null; date?: string | null };
+  const data = result.data as { amount?: number | null; date?: string | null; transactionCode?: string | null };
   return {
     amount: typeof data?.amount === "number" ? Math.round(data.amount) : null,
     date: data?.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : null,
+    transactionCode: typeof data?.transactionCode === "string" && data.transactionCode.trim() ? data.transactionCode.trim() : null,
   };
 }
