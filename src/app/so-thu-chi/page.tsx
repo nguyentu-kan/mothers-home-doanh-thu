@@ -110,11 +110,18 @@ export default async function SoThuChiPage({
           <CashBanner />
         </div>
 
+        <Link
+          href="/so-thu-chi/kho-anh"
+          className="no-print flex items-center justify-between rounded-xl bg-slate-100 dark:bg-white/5 px-4 py-2.5 text-sm font-semibold text-[#1B3A5C] dark:text-blue-300"
+        >
+          <span>📎 Kho ảnh chứng từ</span>
+          <span>{pendingAttachmentCount > 0 ? `${pendingAttachmentCount} ảnh chưa gắn ›` : "Xem ›"}</span>
+        </Link>
+
         <OwnerTransferSection
           outstanding={ownerTransferBalance.outstanding}
           cashHandedOut={ownerTransferBalance.cashHandedOut}
           transfers={ownerTransferBalance.transfers}
-          pendingAttachmentCount={pendingAttachmentCount}
         />
 
         <Link

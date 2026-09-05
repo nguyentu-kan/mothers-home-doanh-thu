@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import { addOwnerTransferAction, deleteOwnerTransferAction, type OwnerTransferFormState } from "./actions";
 import { formatVnd, formatDateTimeVn } from "@/lib/format";
@@ -21,12 +20,10 @@ export default function OwnerTransferSection({
   outstanding,
   cashHandedOut,
   transfers,
-  pendingAttachmentCount,
 }: {
   outstanding: number;
   cashHandedOut: number;
   transfers: Transfer[];
-  pendingAttachmentCount: number;
 }) {
   const [addState, addAction, addPending] = useActionState<OwnerTransferFormState, FormData>(
     addOwnerTransferAction,
@@ -51,7 +48,7 @@ export default function OwnerTransferSection({
     });
   }
 
-  if (outstanding <= 0 && transfers.length === 0 && pendingAttachmentCount === 0) return null;
+  if (outstanding <= 0 && transfers.length === 0) return null;
 
   return (
     <div className="no-print card">
@@ -65,14 +62,6 @@ export default function OwnerTransferSection({
           {showAddForm ? "Đóng" : "+ Ghi đã chuyển"}
         </button>
       </div>
-
-      <Link
-        href="/so-thu-chi/kho-anh"
-        className="flex items-center justify-between rounded-xl bg-slate-100 dark:bg-white/5 px-4 py-2.5 mb-2 text-sm font-semibold text-[#1B3A5C] dark:text-blue-300"
-      >
-        <span>📎 Kho ảnh chứng từ</span>
-        <span>{pendingAttachmentCount > 0 ? `${pendingAttachmentCount} ảnh chưa gắn ›` : "Xem ›"}</span>
-      </Link>
 
       {outstanding > 0 ? (
         <div className="rounded-xl bg-amber-100 dark:bg-amber-900/40 px-4 py-3 flex justify-between items-center mb-2">
