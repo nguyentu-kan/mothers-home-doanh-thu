@@ -125,14 +125,25 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
         <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 p-2 flex flex-col gap-1.5">
           <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">⚠️ {attachment.duplicateWarning}</p>
           {ackError && <p className="text-xs text-red-700 font-semibold">{ackError}</p>}
-          <button
-            type="button"
-            onClick={handleAcknowledge}
-            disabled={acking}
-            className="self-start rounded-lg px-2.5 py-1 text-xs font-semibold bg-amber-600 text-white disabled:opacity-50"
-          >
-            {acking ? "..." : "Đã kiểm tra, vẫn giữ ảnh này"}
-          </button>
+          {deleteError && <p className="text-xs text-red-700 font-semibold">{deleteError}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAcknowledge}
+              disabled={acking}
+              className="rounded-lg px-2.5 py-1 text-xs font-semibold bg-amber-600 text-white disabled:opacity-50"
+            >
+              {acking ? "..." : "Đã kiểm tra, vẫn giữ ảnh này"}
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-lg px-2.5 py-1 text-xs font-semibold bg-red-600 text-white disabled:opacity-50"
+            >
+              {deleting ? "..." : "🗑️ Trùng thật, xoá ảnh này"}
+            </button>
+          </div>
         </div>
       )}
       <div className="flex gap-3">
@@ -157,7 +168,7 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
         </div>
       </div>
 
-      {deleteError && <p className="text-sm text-red-700 font-semibold">{deleteError}</p>}
+      {deleteError && !attachment.duplicateWarning && <p className="text-sm text-red-700 font-semibold">{deleteError}</p>}
 
       <div className="flex gap-2 flex-wrap">
         <button
