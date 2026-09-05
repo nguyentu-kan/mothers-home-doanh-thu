@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import CashBanner from "@/components/CashBanner";
+import OwnerTransferBanner from "@/components/OwnerTransferBanner";
 import BigLinkButton from "@/components/BigLinkButton";
 
 // Ai đăng nhập cũng thấy đủ 5 mục ở trang chủ (để thấy app đầy đủ cỡ nào) — quyền vào được hay
@@ -10,6 +11,7 @@ export default async function HomePage() {
       <Header />
       <main className="flex-1 px-4 py-6 max-w-md mx-auto w-full flex flex-col gap-4">
         <CashBanner />
+        <OwnerTransferBanner />
 
         <div className="grid grid-cols-1 gap-4">
           <BigLinkButton href="/ghi-nhan" icon="☕" label="Ghi nhận dịch vụ" />

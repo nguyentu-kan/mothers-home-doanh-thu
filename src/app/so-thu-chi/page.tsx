@@ -101,6 +101,12 @@ export default async function SoThuChiPage({
           <CashBanner />
         </div>
 
+        <OwnerTransferSection
+          outstanding={ownerTransferBalance.outstanding}
+          cashHandedOut={ownerTransferBalance.cashHandedOut}
+          transfers={ownerTransferBalance.transfers}
+        />
+
         <Link
           href="/so-thu-chi/nhap-nhanh"
           className="no-print flex items-center gap-3 rounded-2xl py-5 px-5 text-white shadow active:scale-[0.98] transition"
@@ -155,12 +161,6 @@ export default async function SoThuChiPage({
             </span>
           </div>
         </div>
-
-        <OwnerTransferSection
-          outstanding={ownerTransferBalance.outstanding}
-          cashHandedOut={ownerTransferBalance.cashHandedOut}
-          transfers={ownerTransferBalance.transfers}
-        />
 
         <PendingReceivablesList
           items={pendingReceivables.map((p) => ({
