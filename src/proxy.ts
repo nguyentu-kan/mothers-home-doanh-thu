@@ -22,9 +22,10 @@ export async function proxy(request: NextRequest) {
   const isManager = session.role === "QUAN_LY" || session.role === "CHU_SO_HUU";
   const isAppAdmin = Boolean(session.isAppAdmin);
 
-  // Quản lý/Chủ sở hữu không phải chủ app thật sự (Cô Vân, Thầy Thành) chỉ được xem Báo cáo — chặn
-  // hết các trang khác (kể cả trang chủ) để tránh họ tự tay sửa số liệu.
-  if (isManager && !isAppAdmin && !pathname.startsWith("/bao-cao")) {
+  // Quản lý/Chủ sở hữu không phải chủ app thật sự (Cô Vân, Thầy Thành) vẫn thấy trang chủ như mọi
+  // người (để biết app có đủ những gì) nhưng bấm vào bất kỳ mục nào khác ngoài Báo cáo đều bị đưa
+  // về lại Báo cáo — chỉ xem được, không tự tay sửa số liệu ở đâu khác.
+  if (isManager && !isAppAdmin && pathname !== "/" && !pathname.startsWith("/bao-cao")) {
     return NextResponse.redirect(new URL("/bao-cao", request.url));
   }
 
