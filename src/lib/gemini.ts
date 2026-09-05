@@ -61,47 +61,21 @@ function getApiKey(): string | null {
   return process.env.GEMINI_API_KEY || null;
 }
 
-export async function parseQuickCapture(input: {
-  images?: { data: string; mimeType: string }[];
-  text?: string;
-}): Promise<{ entries: DraftEntry[] } | { error: string }> {
+// Gọi Gemini với 1 bộ "parts" (chữ + ảnh) và 1 schema JSON mong muốn — dùng chung cho cả
+// parseQuickCapture (đọc cả sổ tay) lẫn extractTransferInfo (chỉ đọc 1 ảnh chuyển khoản riêng lẻ).
+// Trả về JSON đã parse, hoặc { error } — không tự validate cấu trúc bên trong, caller tự kiểm tra.
+async function callGemini(
+  parts: Record<string, unknown>[],
+  schema: Record<string, unknown>
+): Promise<{ data: unknown } | { error: string }> {
   const apiKey = getApiKey();
   if (!apiKey) {
     return { error: "Chưa cấu hình GEMINI_API_KEY — vui lòng báo Quản lý cấu hình trước." };
   }
 
-  const parts: Record<string, unknown>[] = [{ text: SYSTEM_PROMPT }];
-  if (input.text?.trim()) {
-    parts.push({ text: `Nội dung cần đọc:\n${input.text.trim()}` });
-  }
-  (input.images ?? []).forEach((img, index) => {
-    parts.push({ text: `Ảnh số ${index}:` });
-    parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
-  });
-
-  if (parts.length === 1) {
-    return { error: "Chưa có ảnh hoặc nội dung nào để đọc." };
-  }
-
   const body = {
     contents: [{ parts }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "ARRAY",
-        items: {
-          type: "OBJECT",
-          properties: {
-            type: { type: "STRING", enum: DRAFT_TYPES },
-            amount: { type: "INTEGER" },
-            note: { type: "STRING" },
-            date: { type: "STRING", nullable: true },
-            imageIndex: { type: "INTEGER", nullable: true },
-          },
-          required: ["type", "amount"],
-        },
-      },
-    },
+    generationConfig: { responseMimeType: "application/json", responseSchema: schema },
   };
 
   // Dùng tên model cụ thể thay vì alias "gemini-flash-latest" — alias này từng bị treo/không
@@ -148,19 +122,54 @@ export async function parseQuickCapture(input: {
     return { error: "Không đọc được nội dung. Vui lòng thử lại với ảnh rõ hơn." };
   }
 
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(rawText);
+    return { data: JSON.parse(rawText) };
   } catch {
     return { error: "AI trả về dữ liệu không hợp lệ. Vui lòng thử lại." };
   }
+}
 
-  if (!Array.isArray(parsed)) {
+export async function parseQuickCapture(input: {
+  images?: { data: string; mimeType: string }[];
+  text?: string;
+}): Promise<{ entries: DraftEntry[] } | { error: string }> {
+  const parts: Record<string, unknown>[] = [{ text: SYSTEM_PROMPT }];
+  if (input.text?.trim()) {
+    parts.push({ text: `Nội dung cần đọc:\n${input.text.trim()}` });
+  }
+  (input.images ?? []).forEach((img, index) => {
+    parts.push({ text: `Ảnh số ${index}:` });
+    parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
+  });
+
+  if (parts.length === 1) {
+    return { error: "Chưa có ảnh hoặc nội dung nào để đọc." };
+  }
+
+  const schema = {
+    type: "ARRAY",
+    items: {
+      type: "OBJECT",
+      properties: {
+        type: { type: "STRING", enum: DRAFT_TYPES },
+        amount: { type: "INTEGER" },
+        note: { type: "STRING" },
+        date: { type: "STRING", nullable: true },
+        imageIndex: { type: "INTEGER", nullable: true },
+      },
+      required: ["type", "amount"],
+    },
+  };
+
+  const result = await callGemini(parts, schema);
+  if ("error" in result) return result;
+
+  if (!Array.isArray(result.data)) {
     return { error: "AI không tìm thấy khoản thu/chi nào rõ ràng. Vui lòng thử lại." };
   }
 
   const imageCount = input.images?.length ?? 0;
-  const entries: DraftEntry[] = parsed
+  const entries: DraftEntry[] = result.data
     .filter(
       (e): e is { type: string; amount: number; note?: string; date?: string | null; imageIndex?: number | null } =>
         e && typeof e.amount === "number" && DRAFT_TYPES.includes(e.type)
@@ -182,4 +191,38 @@ export async function parseQuickCapture(input: {
   }
 
   return { entries };
+}
+
+export type TransferInfo = { amount: number | null; date: string | null };
+
+const TRANSFER_INFO_PROMPT = `Ảnh này CÓ THỂ là ảnh chụp màn hình xác nhận chuyển khoản/giao dịch thành công từ app ngân hàng hoặc ví điện tử Việt Nam.
+Nếu đúng vậy, đọc và trả về:
+- amount: số tiền giao dịch, đơn vị VNĐ, số nguyên (vd 2000000). Nếu không đọc được, để null.
+- date: ngày giao dịch hiển thị trên ảnh (thường ở dòng "Thời gian"/"Thời điểm giao dịch"), đúng định dạng "YYYY-MM-DD". Ký hiệu Việt Nam luôn là ngày/tháng. Nếu không đọc được ngày rõ ràng, để null.
+Nếu ảnh KHÔNG phải ảnh chuyển khoản (vd ảnh sổ tay viết tay, ảnh khác), trả về amount: null, date: null.
+Chỉ trả về đúng 1 object JSON, không giải thích gì thêm.`;
+
+// Đọc nhanh 1 ảnh riêng lẻ (dùng cho Kho ảnh chứng từ) để gợi ý sẵn ngày/số tiền giao dịch — AI đọc
+// được gì thì gợi ý đó, không bắt buộc đúng 100%, người dùng vẫn xác nhận lại trước khi lưu thành khoản.
+export async function extractTransferInfo(image: { data: string; mimeType: string }): Promise<TransferInfo> {
+  const parts: Record<string, unknown>[] = [
+    { text: TRANSFER_INFO_PROMPT },
+    { inline_data: { mime_type: image.mimeType, data: image.data } },
+  ];
+  const schema = {
+    type: "OBJECT",
+    properties: {
+      amount: { type: "INTEGER", nullable: true },
+      date: { type: "STRING", nullable: true },
+    },
+  };
+
+  const result = await callGemini(parts, schema);
+  if ("error" in result) return { amount: null, date: null };
+
+  const data = result.data as { amount?: number | null; date?: string | null };
+  return {
+    amount: typeof data?.amount === "number" ? Math.round(data.amount) : null,
+    date: data?.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : null,
+  };
 }

@@ -18,6 +18,7 @@ type Attachment = {
   url: string;
   note: string | null;
   time: Date;
+  suggestedAmount: number | null;
   recordedByName: string;
 };
 
@@ -48,7 +49,7 @@ export default function KhoAnhClient({ attachments, transfers }: { attachments: 
       <form action={uploadAction} className="card flex flex-col gap-2">
         <div className="font-bold text-[#1B3A5C] dark:text-white">Up ảnh mới</div>
         <div>
-          <label className="field-label text-sm">Ngày (không bắt buộc)</label>
+          <label className="field-label text-sm">Ngày (bỏ trống để AI tự đọc trên ảnh)</label>
           <input type="date" name="date" className="field-input" />
         </div>
         <div>
@@ -111,6 +112,11 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
           <div className="text-xs text-slate-500">
             {formatDateVn(attachment.time)} — {attachment.recordedByName}
           </div>
+          {attachment.suggestedAmount != null && (
+            <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              🤖 AI đọc được: {formatVnd(attachment.suggestedAmount)}
+            </div>
+          )}
           <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline font-semibold">
             Xem ảnh gốc
           </a>
@@ -144,7 +150,14 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
         </button>
       </div>
 
-      {mode === "LINK" && <LinkForm attachmentId={attachment.id} transfers={transfers} onDone={() => setMode("NONE")} />}
+      {mode === "LINK" && (
+        <LinkForm
+          attachmentId={attachment.id}
+          suggestedAmount={attachment.suggestedAmount}
+          transfers={transfers}
+          onDone={() => setMode("NONE")}
+        />
+      )}
       {mode === "CREATE" && <CreateForm attachment={attachment} onDone={() => setMode("NONE")} />}
     </div>
   );
@@ -152,14 +165,22 @@ function AttachmentCard({ attachment, transfers }: { attachment: Attachment; tra
 
 function LinkForm({
   attachmentId,
+  suggestedAmount,
   transfers,
   onDone,
 }: {
   attachmentId: string;
+  suggestedAmount: number | null;
   transfers: Transfer[];
   onDone: () => void;
 }) {
-  const [transferId, setTransferId] = useState("");
+  // Nếu AI đọc được số tiền và đúng 1 khoản có sẵn khớp số tiền đó (chưa có ảnh) — chọn sẵn luôn,
+  // đỡ phải dò trong danh sách; vẫn đổi lại được bình thường nếu chọn sai.
+  const suggestedMatch =
+    suggestedAmount != null
+      ? transfers.find((t) => t.amount === suggestedAmount && t.attachmentCount === 0)
+      : undefined;
+  const [transferId, setTransferId] = useState(suggestedMatch?.id ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -188,6 +209,11 @@ function LinkForm({
 
   return (
     <div className="flex flex-col gap-2 border-t border-black/10 dark:border-white/10 pt-2">
+      {suggestedMatch && (
+        <p className="text-xs text-emerald-700 dark:text-emerald-400">
+          🤖 Đã tự chọn khoản khớp số tiền AI đọc được — kiểm tra lại trước khi xác nhận.
+        </p>
+      )}
       <select value={transferId} onChange={(e) => setTransferId(e.target.value)} className="field-input">
         <option value="">-- Chọn khoản đã ghi --</option>
         {transfers.map((t) => (
@@ -244,7 +270,15 @@ function CreateForm({ attachment, onDone }: { attachment: Attachment; onDone: ()
       <input type="hidden" name="method" value={method} />
       <div className="grid grid-cols-2 gap-2">
         <input type="date" name="date" defaultValue={format(attachment.time, "yyyy-MM-dd")} className="field-input" />
-        <input type="number" name="amount" min={1} required placeholder="Số tiền" className="field-input" />
+        <input
+          type="number"
+          name="amount"
+          min={1}
+          required
+          defaultValue={attachment.suggestedAmount ?? undefined}
+          placeholder="Số tiền"
+          className="field-input"
+        />
       </div>
       <input name="note" defaultValue={attachment.note ?? ""} placeholder="Ghi chú" className="field-input" />
       {state && "error" in state && <p className="text-sm text-red-700 font-semibold">{state.error}</p>}

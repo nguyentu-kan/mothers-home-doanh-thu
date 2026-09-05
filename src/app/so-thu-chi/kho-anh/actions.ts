@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { canManageCashbook, isAppAdmin } from "@/lib/permissions";
 import { uploadAttachments } from "@/lib/supabase";
+import { extractTransferInfo } from "@/lib/gemini";
 
 async function requireCashbookAccess() {
   const session = await requireSession();
@@ -17,7 +18,8 @@ async function requireCashbookAccess() {
 export type UploadState = { error: string } | { ok: true } | undefined;
 
 // Up ảnh nhanh vào kho, KHÔNG cần điền số liệu kế toán — mỗi file up thành 1 ảnh riêng trong kho,
-// cùng chung ngày/ghi chú nếu up nhiều file 1 lần. Xử lý (gắn vào khoản/tạo khoản) làm sau, lúc nào tiện.
+// cùng chung ngày/ghi chú nếu up nhiều file 1 lần (trừ khi AI đọc được đúng ngày trên ảnh, dùng
+// ngày đó thay vì ngày chọn tay). Xử lý (gắn vào khoản/tạo khoản) làm sau, lúc nào tiện.
 export async function uploadUnassignedAttachmentsAction(
   _prevState: UploadState,
   formData: FormData
@@ -32,14 +34,36 @@ export async function uploadUnassignedAttachmentsAction(
     return { error: "Vui lòng chọn ít nhất 1 ảnh." };
   }
 
-  const urls = await uploadAttachments(files);
-  if (urls.length === 0) {
+  // Mỗi ảnh: upload lên Supabase + nhờ AI đọc thử ngày/số tiền (nếu là ảnh chuyển khoản) — 2 việc
+  // độc lập trên cùng 1 file nên chạy song song; lỗi đọc AI không chặn việc lưu ảnh vào kho.
+  const results = await Promise.all(
+    files.map(async (file) => {
+      const [urls, buffer] = await Promise.all([uploadAttachments([file]), file.arrayBuffer()]);
+      const url = urls[0];
+      if (!url) return null;
+      const info = await extractTransferInfo({
+        data: Buffer.from(buffer).toString("base64"),
+        mimeType: file.type || "image/jpeg",
+      });
+      return { url, info };
+    })
+  );
+
+  const uploaded = results.filter((r): r is { url: string; info: { amount: number | null; date: string | null } } => r !== null);
+  if (uploaded.length === 0) {
     return { error: "Tải ảnh lên thất bại, vui lòng thử lại." };
   }
 
-  const time = dateStr ? new Date(dateStr) : new Date();
   await prisma.unassignedAttachment.createMany({
-    data: urls.map((url) => ({ url, note, time, recordedByUserId: session.userId })),
+    data: uploaded.map(({ url, info }) => ({
+      url,
+      note,
+      // Ưu tiên ngày tự chọn tay (nếu có) — chỉ dùng ngày AI đọc được trên ảnh khi không tự chọn,
+      // và dùng hôm nay nếu cả 2 đều không có.
+      time: dateStr ? new Date(dateStr) : info.date ? new Date(info.date) : new Date(),
+      suggestedAmount: info.amount,
+      recordedByUserId: session.userId,
+    })),
   });
 
   revalidatePath("/so-thu-chi/kho-anh");

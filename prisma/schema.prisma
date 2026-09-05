@@ -203,6 +203,9 @@ model UnassignedAttachment {
   url    String
   note   String?
   time   DateTime @default(now())
+  // AI đọc thử ảnh (nếu là ảnh chuyển khoản) để gợi ý sẵn số tiền — chỉ là gợi ý, không bắt buộc
+  // đúng, người dùng tự xác nhận/sửa khi gắn vào khoản hoặc tạo khoản mới.
+  suggestedAmount Int?
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
