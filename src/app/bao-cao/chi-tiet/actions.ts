@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { isAppAdmin } from "@/lib/permissions";
 import { checkCashAndMaybeAlert } from "@/lib/cash";
+import { uploadAttachments } from "@/lib/supabase";
 import type { ActivityRowKind } from "@/lib/activity";
 
 export type UpdateActivityRowState = { error: string } | { ok: true } | undefined;
@@ -187,6 +188,11 @@ export async function updateActivityRowAction(
     return { error: "Số tiền không hợp lệ." };
   }
 
+  // Cho thêm ảnh vào khoản đã ghi rồi (vd quên đính kèm ảnh chuyển khoản lúc ghi) — luôn CỘNG THÊM
+  // vào ảnh cũ, không thay thế, vì khoản có thể đã có ảnh từ trước.
+  const newAttachmentFiles = formData.getAll("attachments").filter((f): f is File => f instanceof File && f.size > 0);
+  const newAttachmentUrls = newAttachmentFiles.length > 0 ? await uploadAttachments(newAttachmentFiles) : [];
+
   const validTargetTypes: TargetType[] = [
     "ROOM",
     "OTA",
@@ -213,7 +219,7 @@ export async function updateActivityRowAction(
       note,
       time: time ?? new Date(),
       recordedByUserId: original.recordedByUserId,
-      attachmentUrls: original.attachmentUrls,
+      attachmentUrls: [...original.attachmentUrls, ...newAttachmentUrls],
       method: String(formData.get("method") || ""),
       platform: String(formData.get("platform") || ""),
       category: String(formData.get("category") || ""),
@@ -271,6 +277,7 @@ export async function updateActivityRowAction(
           method: method as "TIEN_MAT" | "CHUYEN_KHOAN",
           transferAccount,
           ...(time && { time }),
+          ...(newAttachmentUrls.length > 0 && { attachmentUrls: { push: newAttachmentUrls } }),
         },
       });
       break;
@@ -287,6 +294,7 @@ export async function updateActivityRowAction(
           note: note || null,
           platform: platform as "AGODA" | "CTRIP" | "BOOKING" | "KHAC",
           ...(time && { date: time }),
+          ...(newAttachmentUrls.length > 0 && { attachmentUrls: { push: newAttachmentUrls } }),
         },
       });
       break;
@@ -311,6 +319,7 @@ export async function updateActivityRowAction(
           category: category as "MAT_BANG" | "LUONG" | "MUA_HANG" | "KHAC",
           method: method as "TIEN_MAT" | "CHUYEN_KHOAN",
           ...(time && { time }),
+          ...(newAttachmentUrls.length > 0 && { attachmentUrls: { push: newAttachmentUrls } }),
         },
       });
       break;
@@ -334,6 +343,7 @@ export async function updateActivityRowAction(
           note: note || null,
           method: method as "TIEN_MAT" | "CHUYEN_KHOAN",
           ...(time && { time }),
+          ...(newAttachmentUrls.length > 0 && { attachmentUrls: { push: newAttachmentUrls } }),
         },
       });
       break;

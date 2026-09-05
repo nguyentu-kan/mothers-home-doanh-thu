@@ -157,6 +157,9 @@ function EditForm({ row, onSaved }: { row: ActivityRow; onSaved: () => void }) {
   const isService = targetType === "SERVICE_CA_PHE" || targetType === "SERVICE_SPA";
   const changedType = isService ? row.kind !== "SERVICE" : targetType !== row.kind;
   const noteOrContent = e.note || e.content || "";
+  // Chỉ 4 loại này có cột attachmentUrls trong DB — Dịch vụ/Còn phải thu không lưu ảnh được.
+  const supportsAttachments =
+    targetType === "ROOM" || targetType === "OTA" || targetType === "EXPENSE" || targetType === "OWNER_TRANSFER";
 
   useEffect(() => {
     if (state && "ok" in state && state.ok) {
@@ -286,6 +289,15 @@ function EditForm({ row, onSaved }: { row: ActivityRow; onSaved: () => void }) {
           />
           <NoteField defaultValue={noteOrContent} />
         </>
+      )}
+
+      {supportsAttachments && (
+        <div>
+          <label className="field-label text-xs">
+            {row.attachmentUrls.length > 0 ? "Thêm ảnh (nếu quên đính kèm lúc ghi)" : "Đính kèm ảnh (không bắt buộc)"}
+          </label>
+          <input name="attachments" type="file" accept="image/*,.pdf" multiple className="field-input" />
+        </div>
       )}
 
       {state && "error" in state && <p className="text-sm text-red-700 font-semibold">{state.error}</p>}
