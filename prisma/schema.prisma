@@ -86,6 +86,7 @@ model User {
   pendingReceivablesRecorded  PendingReceivable[] @relation("RecordedByUser")
   pendingReceivablesCollected PendingReceivable[] @relation("CollectedByUser")
   ownerTransfers              OwnerTransfer[]
+  unassignedAttachments       UnassignedAttachment[]
 }
 
 model MenuItem {
@@ -184,6 +185,24 @@ model OwnerTransfer {
   method        CashMethod @default(CHUYEN_KHOAN)
   note          String?
   attachmentUrls String[] @default([])
+
+  recordedByUserId String
+  recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([time])
+}
+
+// Kho ảnh chứng từ — up ảnh nhanh (vd ảnh chuyển khoản của ngày trước, quên up lúc ghi) mà KHÔNG
+// cần điền số liệu kế toán ngay. Sau đó gắn ảnh này vào 1 OwnerTransfer có sẵn, hoặc tạo mới từ
+// ảnh — lúc đó ảnh mới rời khỏi kho (xoá row này, url chuyển sang OwnerTransfer.attachmentUrls).
+// Ảnh không bao giờ gắn vào đâu thì vẫn nằm im ở đây — đúng nghĩa lưu trữ dự phòng.
+model UnassignedAttachment {
+  id     String   @id @default(cuid())
+  url    String
+  note   String?
+  time   DateTime @default(now())
 
   recordedByUserId String
   recordedByUser   User   @relation(fields: [recordedByUserId], references: [id])

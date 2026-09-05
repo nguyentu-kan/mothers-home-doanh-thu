@@ -36,20 +36,29 @@ export default async function SoThuChiPage({
   const now = new Date();
   const todayFilter = { gte: startOfDay(now), lte: endOfDay(now) };
 
-  const [summary, roomEntriesToday, otaEntriesToday, expenseEntriesToday, serviceToday, pendingReceivables, ownerTransferBalance] =
-    await Promise.all([
-      getCashbookSummary(from, to),
-      prisma.roomRevenueEntry.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
-      prisma.otaReceivable.findMany({ where: { date: todayFilter }, orderBy: { date: "desc" } }),
-      prisma.expense.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
-      prisma.serviceRecord.count({ where: { time: todayFilter } }),
-      prisma.pendingReceivable.findMany({
-        where: { status: "PENDING" },
-        orderBy: { time: "asc" },
-        include: { recordedByUser: { select: { name: true } } },
-      }),
-      getOwnerTransferBalance(),
-    ]);
+  const [
+    summary,
+    roomEntriesToday,
+    otaEntriesToday,
+    expenseEntriesToday,
+    serviceToday,
+    pendingReceivables,
+    ownerTransferBalance,
+    pendingAttachmentCount,
+  ] = await Promise.all([
+    getCashbookSummary(from, to),
+    prisma.roomRevenueEntry.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
+    prisma.otaReceivable.findMany({ where: { date: todayFilter }, orderBy: { date: "desc" } }),
+    prisma.expense.findMany({ where: { time: todayFilter }, orderBy: { time: "desc" } }),
+    prisma.serviceRecord.count({ where: { time: todayFilter } }),
+    prisma.pendingReceivable.findMany({
+      where: { status: "PENDING" },
+      orderBy: { time: "asc" },
+      include: { recordedByUser: { select: { name: true } } },
+    }),
+    getOwnerTransferBalance(),
+    prisma.unassignedAttachment.count(),
+  ]);
 
   const roomToday = roomEntriesToday.length;
   const otaToday = otaEntriesToday.length;
@@ -105,6 +114,7 @@ export default async function SoThuChiPage({
           outstanding={ownerTransferBalance.outstanding}
           cashHandedOut={ownerTransferBalance.cashHandedOut}
           transfers={ownerTransferBalance.transfers}
+          pendingAttachmentCount={pendingAttachmentCount}
         />
 
         <Link
