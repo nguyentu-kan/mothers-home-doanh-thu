@@ -46,17 +46,6 @@ function computeTotal(rows: ActivityRow[]): number {
   return rows.filter((r) => r.kind !== "PENDING" && r.kind !== "OWNER_TRANSFER").reduce((sum, r) => sum + r.amount, 0);
 }
 
-// "Chuyển tiếp cho Cô Vân" là tiền ĐÃ tính 1 lần rồi (lúc khách trả tiền phòng) — chỉ là điều chuyển
-// nội bộ sang tài khoản Cô Vân, không phải tiền thu/chi mới. Loại khỏi Tổng tiền mặt để không bị
-// cộng trùng (vẫn hiện đủ trong bảng chi tiết, chỉ không cộng vào tổng).
-function computeCashTotal(rows: ActivityRow[]): number {
-  return rows.filter((r) => !isDebtRow(r.kind) && r.kind !== "OWNER_TRANSFER").reduce((sum, r) => sum + r.amount, 0);
-}
-
-function computeDebtTotal(rows: ActivityRow[]): number {
-  return rows.filter((r) => isDebtRow(r.kind)).reduce((sum, r) => sum + r.amount, 0);
-}
-
 export async function buildActivityReportWorkbook(params: {
   rows: ActivityRow[];
   from: Date;
@@ -137,27 +126,10 @@ export async function buildActivityReportWorkbook(params: {
     r++;
   }
 
-  function subtotalRow(label: string, col: number, formula: string, cachedResult: number) {
-    const row = sheet.getRow(r);
-    sheet.mergeCells(r, 1, r, 4);
-    row.getCell(1).value = label;
-    row.getCell(1).font = { bold: true };
-    row.getCell(1).alignment = { horizontal: "right" };
-    const cell = row.getCell(col);
-    cell.value = { formula, result: cachedResult };
-    cell.numFmt = '#,##0" đ"';
-    cell.font = { bold: true, color: { argb: cachedResult < 0 ? RED : GREEN } };
-    cell.alignment = { horizontal: "right" };
-    for (let c = 1; c <= LAST_COL; c++) {
-      row.getCell(c).border = { top: { style: "thin", color: { argb: "FF999999" } } };
-    }
-    r++;
-  }
-
-  // Dùng công thức Excel thật (SUMIF/SUM) thay vì số tính sẵn — bạn sửa/xoá dòng nào trong bảng thì
-  // các dòng tổng bên dưới tự cập nhật lại, không cần chạy lại từ app. "Chuyển tiếp cho Cô Vân" phải
-  // lọc ra bằng SUMIF (dựa theo cột "Loại") thay vì SUM thường, vì nếu cộng cả dòng đó vào Tổng tiền
-  // mặt sẽ bị tính trùng (tiền đó đã tính 1 lần lúc khách trả tiền phòng rồi).
+  // Dùng công thức Excel thật (SUMIF) thay vì số tính sẵn — sửa/xoá dòng nào trong bảng thì dòng
+  // Tổng cộng tự cập nhật lại, bấm vào ô là thấy ngay công thức. "Chuyển tiếp cho Cô Vân" và "Còn
+  // phải thu" phải lọc ra bằng SUMIF (dựa theo cột "Loại") thay vì SUM thường — cộng cả 2 dòng đó
+  // vào sẽ bị tính trùng/tính vào tiền chưa thu thật (xem computeTotal để rõ lý do).
   const firstDataRow = 7;
   const lastDataRow = Math.max(r - 1, firstDataRow);
   const typeCol = sheet.getColumn(2).letter;
@@ -167,19 +139,6 @@ export async function buildActivityReportWorkbook(params: {
   const cashRange = `${cashCol}${firstDataRow}:${cashCol}${lastDataRow}`;
   const debtRange = `${debtCol}${firstDataRow}:${debtCol}${lastDataRow}`;
 
-  const cashSubtotalRowNum = r;
-  subtotalRow(
-    "Tổng Tiền mặt / CK",
-    AMOUNT_COL_CASH,
-    `SUMIF(${typeRange},"<>Chuyển tiếp cho Cô Vân",${cashRange})`,
-    computeCashTotal(rows)
-  );
-  subtotalRow("Tổng Công nợ", AMOUNT_COL_DEBT, `SUM(${debtRange})`, computeDebtTotal(rows));
-
-  // Số này gộp cả 2 cột (Tiền mặt/CK + Công nợ OTA) — đúng định nghĩa "Thu" mà mọi báo cáo khác
-  // trong app đang dùng (OTA công nợ tính là Thu dù chưa thu được tiền thật): Tổng tiền mặt (đã lọc
-  // "Chuyển tiếp cho Cô Vân") cộng thêm riêng phần OTA công nợ trong cột Công nợ (KHÔNG cộng "Còn
-  // phải thu" — vẫn không tính vào Tổng cộng, xem ghi chú bên dưới).
   const total = computeTotal(rows);
   const totalRow = sheet.getRow(r);
   sheet.mergeCells(r, 1, r, 4);
@@ -189,7 +148,7 @@ export async function buildActivityReportWorkbook(params: {
   sheet.mergeCells(r, AMOUNT_COL_CASH, r, AMOUNT_COL_DEBT);
   const totalAmountCell = totalRow.getCell(AMOUNT_COL_CASH);
   totalAmountCell.value = {
-    formula: `${cashCol}${cashSubtotalRowNum}+SUMIF(${typeRange},"OTA công nợ",${debtRange})`,
+    formula: `SUMIF(${typeRange},"<>Chuyển tiếp cho Cô Vân",${cashRange})+SUMIF(${typeRange},"OTA công nợ",${debtRange})`,
     result: total,
   };
   totalAmountCell.numFmt = '#,##0" đ"';
