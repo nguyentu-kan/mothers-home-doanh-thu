@@ -109,7 +109,7 @@ export async function confirmQuickCaptureAction(
         return prisma.otaReceivable.create({
           data: {
             amount: entry.amount,
-            platform: "KHAC",
+            platform: entry.platform ?? "KHAC",
             note: entry.note || null,
             date: time,
             recordedByUserId: session.userId,

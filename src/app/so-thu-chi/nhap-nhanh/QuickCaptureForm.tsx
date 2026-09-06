@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { parseQuickCaptureAction, confirmQuickCaptureAction, type ParseState } from "./actions";
-import type { DraftEntry, DraftEntryType } from "@/lib/gemini";
+import type { DraftEntry, DraftEntryType, OtaPlatformCode } from "@/lib/gemini";
 import { formatVnd, formatDateVn } from "@/lib/format";
 
 // Web Speech API chưa có sẵn trong TypeScript lib chuẩn — khai báo tối thiểu phần dùng tới.
@@ -40,6 +40,14 @@ const TYPE_LABELS: Record<DraftEntryType, string> = {
 };
 
 const TYPE_OPTIONS = Object.entries(TYPE_LABELS) as [DraftEntryType, string][];
+
+const PLATFORM_LABELS: Record<OtaPlatformCode, string> = {
+  AGODA: "Agoda",
+  CTRIP: "Ctrip",
+  BOOKING: "Booking.com",
+  KHAC: "Khác",
+};
+const PLATFORM_OPTIONS = Object.entries(PLATFORM_LABELS) as [OtaPlatformCode, string][];
 
 type DateSummary = {
   date: string;
@@ -165,7 +173,7 @@ export default function QuickCaptureForm() {
   function addDraftEntry() {
     setDraft((prev) => {
       const base = prev ?? (parseState?.ok ? parseState.entries : []);
-      return [...base, { type: "CHI_KHAC", amount: 0, note: "", date: null, imageIndex: null }];
+      return [...base, { type: "CHI_KHAC", amount: 0, note: "", date: null, imageIndex: null, platform: null }];
     });
   }
 
@@ -234,7 +242,10 @@ export default function QuickCaptureForm() {
           <div key={i} className="card flex flex-col gap-3">
             <select
               value={entry.type}
-              onChange={(e) => updateDraftEntry(i, { type: e.target.value as DraftEntryType })}
+              onChange={(e) => {
+                const type = e.target.value as DraftEntryType;
+                updateDraftEntry(i, { type, platform: type === "OTA" ? (entry.platform ?? "KHAC") : null });
+              }}
               className="field-input"
             >
               {TYPE_OPTIONS.map(([value, label]) => (
@@ -243,6 +254,22 @@ export default function QuickCaptureForm() {
                 </option>
               ))}
             </select>
+            {entry.type === "OTA" && (
+              <div>
+                <label className="field-label text-sm">Sàn</label>
+                <select
+                  value={entry.platform ?? "KHAC"}
+                  onChange={(e) => updateDraftEntry(i, { platform: e.target.value as OtaPlatformCode })}
+                  className="field-input"
+                >
+                  {PLATFORM_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {entry.imageIndex !== null && (
               <p className="text-sm text-emerald-700 dark:text-emerald-400">
                 📎 Sẽ đính kèm Ảnh {entry.imageIndex + 1} làm bằng chứng

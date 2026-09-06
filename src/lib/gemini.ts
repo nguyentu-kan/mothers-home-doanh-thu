@@ -9,6 +9,8 @@ export type DraftEntryType =
   | "CHI_MUA_HANG"
   | "CHI_KHAC";
 
+export type OtaPlatformCode = "AGODA" | "CTRIP" | "BOOKING" | "KHAC";
+
 export type DraftEntry = {
   type: DraftEntryType;
   amount: number;
@@ -18,6 +20,9 @@ export type DraftEntry = {
   // tiền cho Cô Vân), đây là chỉ số (đếm từ 0) của ảnh đó trong danh sách ảnh đã gửi lên — dùng để
   // đính kèm đúng ảnh đó làm bằng chứng khi lưu. null nếu khoản này không gắn với 1 ảnh cụ thể.
   imageIndex: number | null;
+  // Chỉ có giá trị khi type là "OTA" — tên sàn đọc được từ ghi chú (Agoda/Ctrip/Booking), "KHAC"
+  // nếu không nhận diện được sàn nào cụ thể. null với mọi type khác.
+  platform: OtaPlatformCode | null;
 };
 
 const DRAFT_TYPES: DraftEntryType[] = [
@@ -32,6 +37,8 @@ const DRAFT_TYPES: DraftEntryType[] = [
   "CHI_KHAC",
 ];
 
+const OTA_PLATFORM_CODES: OtaPlatformCode[] = ["AGODA", "CTRIP", "BOOKING", "KHAC"];
+
 const SYSTEM_PROMPT = `Bạn là trợ lý đọc sổ thu chi cho một khách sạn nhỏ ở Việt Nam.
 Đọc nội dung được cung cấp (có thể là ảnh chụp sổ tay viết tay, ảnh hoá đơn/chuyển khoản, hoặc đoạn chữ do nhân viên đọc/gõ) và trích xuất TẤT CẢ các khoản Thu hoặc Chi tìm thấy.
 
@@ -41,6 +48,7 @@ Mỗi khoản trả về 1 object với các trường:
 - note: ghi chú ngắn gọn (số phòng, tên khách, lý do chi...), nếu không có thì để chuỗi rỗng
 - date: BẮT BUỘC đúng định dạng "YYYY-MM-DD" (4 số năm - 2 số tháng - 2 số ngày) nếu đọc được. Ký hiệu Việt Nam luôn là ngày/tháng, KHÔNG phải tháng/ngày — vd sổ ghi "9/8" nghĩa là ngày 9 tháng 8, năm hiện tại là ${new Date().getFullYear()}, phải trả về "${new Date().getFullYear()}-08-09". Nếu không đọc được ngày rõ ràng, để null — TUYỆT ĐỐI không trả về dạng "9/8" hay bất kỳ định dạng nào khác ngoài YYYY-MM-DD hoặc null.
 - imageIndex: nếu khoản này được đọc TỪ 1 ẢNH CHỤP MÀN HÌNH CHUYỂN KHOẢN cụ thể (xem "Ảnh số N:" ngay trước mỗi ảnh được gửi), trả về đúng số N của ảnh đó. Nếu khoản này đọc từ ảnh sổ tay/ghi chú (không phải ảnh chụp màn hình riêng cho khoản này) hoặc từ chữ gõ tay, để null.
+- platform: CHỈ áp dụng khi type là "OTA" — đọc tên sàn xuất hiện trong ghi chú và trả về đúng 1 trong: "AGODA" (nếu thấy "Agoda"), "CTRIP" (nếu thấy "Ctrip"/"Trip.com"), "BOOKING" (nếu thấy "Booking"/"Booking.com"), hoặc "KHAC" nếu là sàn khác hoặc không nhận diện được tên sàn nào. Với mọi type khác ngoài "OTA", để null.
 
 Nhận diện ẢNH CHỤP MÀN HÌNH CHUYỂN KHOẢN (khác với ảnh chụp sổ tay viết tay): thường là giao diện app ngân hàng/ví điện tử, có chữ như "Giao dịch thành công", "Chuyển tiền thành công", số tiền lớn ở giữa, tên/số tài khoản người nhận, mã giao dịch. Nếu 1 ảnh thuộc dạng này VÀ người nhận có tên gần giống "Cô Vân"/tên chủ khách sạn (hoặc không ghi rõ người nhận nhưng ngữ cảnh cho thấy đây là chuyển tiền nội bộ, không phải khách trả tiền phòng) — trích xuất thành 1 khoản type "CHUYEN_CHO_CO_VAN", amount = số tiền trên ảnh, note = tên người nhận nếu có, và BẮT BUỘC set đúng imageIndex = số thứ tự ảnh đó.
 
@@ -156,6 +164,7 @@ export async function parseQuickCapture(input: {
         note: { type: "STRING" },
         date: { type: "STRING", nullable: true },
         imageIndex: { type: "INTEGER", nullable: true },
+        platform: { type: "STRING", enum: OTA_PLATFORM_CODES, nullable: true },
       },
       required: ["type", "amount"],
     },
@@ -171,8 +180,16 @@ export async function parseQuickCapture(input: {
   const imageCount = input.images?.length ?? 0;
   const entries: DraftEntry[] = result.data
     .filter(
-      (e): e is { type: string; amount: number; note?: string; date?: string | null; imageIndex?: number | null } =>
-        e && typeof e.amount === "number" && DRAFT_TYPES.includes(e.type)
+      (
+        e
+      ): e is {
+        type: string;
+        amount: number;
+        note?: string;
+        date?: string | null;
+        imageIndex?: number | null;
+        platform?: string | null;
+      } => e && typeof e.amount === "number" && DRAFT_TYPES.includes(e.type)
     )
     .map((e) => ({
       type: e.type as DraftEntryType,
@@ -184,6 +201,13 @@ export async function parseQuickCapture(input: {
       // Chỉ chấp nhận chỉ số hợp lệ trong phạm vi số ảnh thật đã gửi lên, phòng AI trả số sai.
       imageIndex:
         typeof e.imageIndex === "number" && e.imageIndex >= 0 && e.imageIndex < imageCount ? e.imageIndex : null,
+      // Chỉ giữ giá trị hợp lệ với khoản OTA — các type khác luôn null dù AI có lỡ trả gì đó.
+      platform:
+        e.type === "OTA" && e.platform && OTA_PLATFORM_CODES.includes(e.platform as OtaPlatformCode)
+          ? (e.platform as OtaPlatformCode)
+          : e.type === "OTA"
+            ? "KHAC"
+            : null,
     }));
 
   if (entries.length === 0) {

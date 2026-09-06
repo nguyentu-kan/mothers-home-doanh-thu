@@ -27,13 +27,14 @@ export async function GET(request: NextRequest) {
 
   const rows = await getActivityRows(from, to, userId);
 
-  const header = ["Thời gian", "Loại", "Nội dung", "Số tiền", "Hình thức", "Người ghi", "Link chứng từ"];
+  const header = ["Thời gian", "Loại", "Sàn", "Nội dung", "Số tiền", "Hình thức", "Người ghi", "Link chứng từ"];
   const lines = [header.join(",")];
   for (const r of rows) {
     lines.push(
       [
         csvEscape(formatDateTimeVn(r.time)),
         csvEscape(r.type),
+        csvEscape(r.platform),
         csvEscape(r.description),
         String(r.amount),
         csvEscape(r.method),

@@ -22,6 +22,8 @@ export type ActivityRow = {
   description: string;
   amount: number;
   method: string;
+  // Sàn OTA (Agoda/Ctrip/Booking.com/Khác) — chỉ có giá trị ở khoản OTA công nợ, rỗng ở loại khác.
+  platform: string;
   recordedByName: string;
   attachmentUrls: string[];
   editData: ActivityEditData;
@@ -95,6 +97,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       description: `${s.content} (SL ${s.quantity}) — ${s.roomOrGuest} — ${PAYMENT_LABEL[s.paymentMethod]}`,
       amount: s.amount,
       method: PAYMENT_LABEL[s.paymentMethod],
+      platform: "",
       recordedByName: s.recordedByUser.name,
       attachmentUrls: [],
       editData: {
@@ -117,6 +120,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
         description: (r.note || "") + accountTag,
         amount: r.amount,
         method: PAYMENT_LABEL[r.method] + accountTag,
+        platform: "",
         recordedByName: r.recordedByUser.name,
         attachmentUrls: r.attachmentUrls,
         editData: {
@@ -135,6 +139,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       description: `${PLATFORM_LABEL[o.platform]} — ${o.note || ""}`,
       amount: o.amount,
       method: "Công nợ",
+      platform: PLATFORM_LABEL[o.platform],
       recordedByName: o.recordedByUser.name,
       attachmentUrls: o.attachmentUrls,
       editData: {
@@ -151,6 +156,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       description: `${EXPENSE_CATEGORY_LABEL[e.category]} — ${e.note}`,
       amount: -e.amount,
       method: PAYMENT_LABEL[e.method],
+      platform: "",
       recordedByName: e.recordedByUser.name,
       attachmentUrls: e.attachmentUrls,
       editData: {
@@ -168,6 +174,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       description: (p.note || "") + " (chưa thu)",
       amount: p.amount,
       method: "Chưa thu",
+      platform: "",
       recordedByName: p.recordedByUser.name,
       attachmentUrls: [],
       editData: {
@@ -183,6 +190,7 @@ export async function getActivityRows(from: Date, to: Date, userId?: string): Pr
       description: t.note || "",
       amount: t.amount,
       method: t.method === "TIEN_MAT" ? "Tiền mặt" : "Chuyển khoản",
+      platform: "",
       recordedByName: t.recordedByUser.name,
       attachmentUrls: t.attachmentUrls,
       editData: {
