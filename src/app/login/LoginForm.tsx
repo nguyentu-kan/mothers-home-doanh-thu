@@ -36,7 +36,6 @@ export default function LoginForm({ users }: Props) {
           id="password"
           name="password"
           type="password"
-          inputMode="numeric"
           required
           className="field-input"
           placeholder="Nhập mật khẩu"
