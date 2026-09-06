@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { format } from "date-fns";
 import { requireSession } from "@/lib/session";
 import { isManager } from "@/lib/permissions";
 import { getPeriodRange, type PeriodKey } from "@/lib/period";
 import { getActivityRows } from "@/lib/activity";
 import { buildActivityReportWorkbook } from "@/lib/report-export";
 import { prisma } from "@/lib/prisma";
+
+// Tên file có ngày cụ thể (không chỉ "week"/"month") để dù tải về lúc nào, mở lại sau này vẫn biết
+// ngay đây là báo cáo của khoảng thời gian nào — viết không dấu, không khoảng trắng cho an toàn khi
+// lưu trên mọi hệ điều hành/app.
+function buildExportFilename(from: Date, to: Date): string {
+  const fromStr = format(from, "dd-MM-yyyy");
+  const toStr = format(to, "dd-MM-yyyy");
+  const range = fromStr === toStr ? fromStr : `${fromStr}_den_${toStr}`;
+  return `Mothers-Home-Bao-cao-chi-tiet_${range}.xlsx`;
+}
 
 export async function GET(request: NextRequest) {
   const session = await requireSession();
@@ -35,7 +46,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="Bao-cao-chi-tiet-${period}.xlsx"`,
+      "Content-Disposition": `attachment; filename="${buildExportFilename(from, to)}"`,
     },
   });
 }
