@@ -67,11 +67,12 @@ export default async function ChiTietPage({
         </form>
 
         <a href={exportHref} className="btn-big bg-slate-600 text-center">
-          ⬇️ Xuất CSV ({rows.length} dòng)
+          ⬇️ Xuất file Excel ({rows.length} dòng)
         </a>
         <p className="text-xs text-slate-400 text-center -mt-2">
-          File tải về sẽ tự lưu vào mục &quot;Tải xuống&quot; (Downloads) hoặc app &quot;Files&quot; trên điện thoại/máy
-          tính.
+          File đã có sẵn tiêu đề, khung bảng, định dạng số tiền — tải về là gửi được luôn, không cần chỉnh sửa gì
+          thêm. File tải về sẽ tự lưu vào mục &quot;Tải xuống&quot; (Downloads) hoặc app &quot;Files&quot; trên điện
+          thoại/máy tính.
         </p>
 
         <ChiTietTable rows={rows} canEdit={canEdit} />

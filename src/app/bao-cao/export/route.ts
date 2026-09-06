@@ -3,14 +3,8 @@ import { requireSession } from "@/lib/session";
 import { isManager } from "@/lib/permissions";
 import { getPeriodRange, type PeriodKey } from "@/lib/period";
 import { getActivityRows } from "@/lib/activity";
-import { formatDateTimeVn } from "@/lib/format";
-
-function csvEscape(value: string) {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
+import { buildActivityReportWorkbook } from "@/lib/report-export";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const session = await requireSession();
@@ -25,31 +19,23 @@ export async function GET(request: NextRequest) {
   const toParam = searchParams.get("to") || undefined;
   const { from, to } = getPeriodRange(period, fromParam, toParam);
 
-  const rows = await getActivityRows(from, to, userId);
+  const [rows, filterUser] = await Promise.all([
+    getActivityRows(from, to, userId),
+    userId ? prisma.user.findUnique({ where: { id: userId }, select: { name: true } }) : Promise.resolve(null),
+  ]);
 
-  const header = ["Thời gian", "Loại", "Sàn", "Nội dung", "Số tiền", "Hình thức", "Người ghi", "Link chứng từ"];
-  const lines = [header.join(",")];
-  for (const r of rows) {
-    lines.push(
-      [
-        csvEscape(formatDateTimeVn(r.time)),
-        csvEscape(r.type),
-        csvEscape(r.platform),
-        csvEscape(r.description),
-        String(r.amount),
-        csvEscape(r.method),
-        csvEscape(r.recordedByName),
-        csvEscape(r.attachmentUrls.join(" | ")),
-      ].join(",")
-    );
-  }
+  const buffer = await buildActivityReportWorkbook({
+    rows,
+    from,
+    to,
+    filterName: filterUser?.name,
+    exportedByName: session.name || session.username || "",
+  });
 
-  const csvContent = "﻿" + lines.join("\r\n");
-
-  return new NextResponse(csvContent, {
+  return new NextResponse(buffer, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="bao-cao-${period}.csv"`,
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="Bao-cao-chi-tiet-${period}.xlsx"`,
     },
   });
 }
