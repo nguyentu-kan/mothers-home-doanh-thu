@@ -9,6 +9,7 @@ const HEADER_FG = "FFFFFFFF";
 const MUTED = "FF888888";
 const RED = "FFB91C1C";
 const GREEN = "FF0E7C66";
+const DEBT_BLUE = "FF1B5EAA";
 
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: "thin", color: { argb: "FFD9D9D9" } },
@@ -22,19 +23,16 @@ const COLUMNS = [
   { header: "Loại", width: 18 },
   { header: "Sàn", width: 12 },
   { header: "Nội dung", width: 44 },
-  { header: "Tiền mặt / CK", width: 16 },
-  { header: "Công nợ", width: 16 },
+  { header: "Số tiền", width: 16 },
   { header: "Hình thức", width: 24 },
   { header: "Người ghi", width: 14 },
   { header: "Link chứng từ", width: 18 },
 ];
 const LAST_COL = COLUMNS.length;
-const AMOUNT_COL_CASH = 5;
-const AMOUNT_COL_DEBT = 6;
+const AMOUNT_COL = 5;
 
-// Tách 2 cột để không ai lỡ đọc nhầm công nợ (OTA/còn phải thu — CHƯA có tiền thật) thành tiền đã có
-// trong tay. Không đổi cách tính TỔNG CỘNG (Thu-Chi) — vẫn khớp với mọi báo cáo khác trong app,
-// vốn đã tính OTA công nợ là "Thu" (xem computeTotal bên dưới); 2 cột này chỉ là hiển thị trực quan.
+// OTA công nợ/Còn phải thu CHƯA có tiền thật — tô màu xanh dương khác với tiền mặt/CK (đen) và chi
+// phí (đỏ) để không lỡ đọc nhầm là tiền đã có trong tay, dù chung 1 cột Số tiền.
 function isDebtRow(kind: ActivityRow["kind"]): boolean {
   return kind === "OTA" || kind === "PENDING";
 }
@@ -100,20 +98,20 @@ export async function buildActivityReportWorkbook(params: {
     excelRow.getCell(3).value = row.platform || "";
     excelRow.getCell(4).value = row.description;
 
-    const amountCol = isDebtRow(row.kind) ? AMOUNT_COL_DEBT : AMOUNT_COL_CASH;
-    const amountCell = excelRow.getCell(amountCol);
+    const amountCell = excelRow.getCell(AMOUNT_COL);
     amountCell.value = row.amount;
     amountCell.numFmt = '#,##0" đ"';
     amountCell.alignment = { horizontal: "right", vertical: "middle" };
     if (row.amount < 0) amountCell.font = { color: { argb: RED } };
+    else if (isDebtRow(row.kind)) amountCell.font = { color: { argb: DEBT_BLUE } };
 
-    excelRow.getCell(7).value = row.method;
-    excelRow.getCell(8).value = row.recordedByName;
+    excelRow.getCell(6).value = row.method;
+    excelRow.getCell(7).value = row.recordedByName;
 
-    const attachCell = excelRow.getCell(9);
+    const attachCell = excelRow.getCell(8);
     if (row.attachmentUrls.length === 1) {
       attachCell.value = { text: "📎 Xem chứng từ", hyperlink: row.attachmentUrls[0] };
-      attachCell.font = { color: { argb: "FF1B5EAA" }, underline: true };
+      attachCell.font = { color: { argb: DEBT_BLUE }, underline: true };
     } else if (row.attachmentUrls.length > 1) {
       attachCell.value = row.attachmentUrls.join(" | ");
     }
@@ -121,23 +119,21 @@ export async function buildActivityReportWorkbook(params: {
     for (let c = 1; c <= LAST_COL; c++) {
       const cell = excelRow.getCell(c);
       cell.border = THIN_BORDER;
-      if (c !== AMOUNT_COL_CASH && c !== AMOUNT_COL_DEBT) cell.alignment = { vertical: "middle", wrapText: c === 4 };
+      if (c !== AMOUNT_COL) cell.alignment = { vertical: "middle", wrapText: c === 4 };
     }
     r++;
   }
 
-  // Dùng công thức Excel thật (SUMIF) thay vì số tính sẵn — sửa/xoá dòng nào trong bảng thì dòng
-  // Tổng cộng tự cập nhật lại, bấm vào ô là thấy ngay công thức. "Chuyển tiếp cho Cô Vân" và "Còn
-  // phải thu" phải lọc ra bằng SUMIF (dựa theo cột "Loại") thay vì SUM thường — cộng cả 2 dòng đó
+  // Dùng công thức Excel thật (SUM trừ 2 khoản không tính) thay vì số tính sẵn — sửa/xoá dòng nào
+  // trong bảng thì dòng Tổng cộng tự cập nhật lại, bấm vào ô là thấy ngay công thức. "Chuyển tiếp
+  // cho Cô Vân" và "Còn phải thu" phải trừ ra bằng SUMIF (dựa theo cột "Loại") — cộng cả 2 dòng đó
   // vào sẽ bị tính trùng/tính vào tiền chưa thu thật (xem computeTotal để rõ lý do).
   const firstDataRow = 7;
   const lastDataRow = Math.max(r - 1, firstDataRow);
   const typeCol = sheet.getColumn(2).letter;
-  const cashCol = sheet.getColumn(AMOUNT_COL_CASH).letter;
-  const debtCol = sheet.getColumn(AMOUNT_COL_DEBT).letter;
+  const amountCol = sheet.getColumn(AMOUNT_COL).letter;
   const typeRange = `${typeCol}${firstDataRow}:${typeCol}${lastDataRow}`;
-  const cashRange = `${cashCol}${firstDataRow}:${cashCol}${lastDataRow}`;
-  const debtRange = `${debtCol}${firstDataRow}:${debtCol}${lastDataRow}`;
+  const amountRange = `${amountCol}${firstDataRow}:${amountCol}${lastDataRow}`;
 
   const total = computeTotal(rows);
   const totalRow = sheet.getRow(r);
@@ -145,10 +141,9 @@ export async function buildActivityReportWorkbook(params: {
   totalRow.getCell(1).value = "TỔNG CỘNG (Thu − Chi, gồm cả Công nợ OTA)";
   totalRow.getCell(1).font = { bold: true };
   totalRow.getCell(1).alignment = { horizontal: "right" };
-  sheet.mergeCells(r, AMOUNT_COL_CASH, r, AMOUNT_COL_DEBT);
-  const totalAmountCell = totalRow.getCell(AMOUNT_COL_CASH);
+  const totalAmountCell = totalRow.getCell(AMOUNT_COL);
   totalAmountCell.value = {
-    formula: `SUMIF(${typeRange},"<>Chuyển tiếp cho Cô Vân",${cashRange})+SUMIF(${typeRange},"OTA công nợ",${debtRange})`,
+    formula: `SUM(${amountRange})-SUMIF(${typeRange},"Chuyển tiếp cho Cô Vân",${amountRange})-SUMIF(${typeRange},"Còn phải thu",${amountRange})`,
     result: total,
   };
   totalAmountCell.numFmt = '#,##0" đ"';
@@ -164,7 +159,7 @@ export async function buildActivityReportWorkbook(params: {
   const notes: string[] = [];
   if (pendingTotal > 0) notes.push(`Trong đó Còn phải thu (chưa tính vào Tổng cộng): ${formatVnd(pendingTotal)}`);
   if (transferTotal > 0)
-    notes.push(`Đã chuyển tiếp cho Cô Vân (không tính vào Tổng tiền mặt/CK, không phải tiền thu mới): ${formatVnd(transferTotal)}`);
+    notes.push(`Đã chuyển tiếp cho Cô Vân (không tính vào Tổng cộng, không phải tiền thu mới): ${formatVnd(transferTotal)}`);
   for (const note of notes) {
     sheet.mergeCells(r, 1, r, LAST_COL);
     const cell = sheet.getCell(r, 1);
