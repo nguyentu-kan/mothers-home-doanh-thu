@@ -46,6 +46,17 @@ function computeTotal(rows: ActivityRow[]): number {
   return rows.filter((r) => r.kind !== "PENDING" && r.kind !== "OWNER_TRANSFER").reduce((sum, r) => sum + r.amount, 0);
 }
 
+// "Chuyển tiếp cho Cô Vân" là tiền ĐÃ tính 1 lần rồi (lúc khách trả tiền phòng) — chỉ là điều chuyển
+// nội bộ sang tài khoản Cô Vân, không phải tiền thu/chi mới. Loại khỏi Tổng tiền mặt để không bị
+// cộng trùng (vẫn hiện đủ trong bảng chi tiết, chỉ không cộng vào tổng).
+function computeCashTotal(rows: ActivityRow[]): number {
+  return rows.filter((r) => !isDebtRow(r.kind) && r.kind !== "OWNER_TRANSFER").reduce((sum, r) => sum + r.amount, 0);
+}
+
+function computeDebtTotal(rows: ActivityRow[]): number {
+  return rows.filter((r) => isDebtRow(r.kind)).reduce((sum, r) => sum + r.amount, 0);
+}
+
 export async function buildActivityReportWorkbook(params: {
   rows: ActivityRow[];
   from: Date;
@@ -126,6 +137,26 @@ export async function buildActivityReportWorkbook(params: {
     r++;
   }
 
+  function subtotalRow(label: string, col: number, value: number) {
+    const row = sheet.getRow(r);
+    sheet.mergeCells(r, 1, r, 4);
+    row.getCell(1).value = label;
+    row.getCell(1).font = { bold: true };
+    row.getCell(1).alignment = { horizontal: "right" };
+    const cell = row.getCell(col);
+    cell.value = value;
+    cell.numFmt = '#,##0" đ"';
+    cell.font = { bold: true, color: { argb: value < 0 ? RED : GREEN } };
+    cell.alignment = { horizontal: "right" };
+    for (let c = 1; c <= LAST_COL; c++) {
+      row.getCell(c).border = { top: { style: "thin", color: { argb: "FF999999" } } };
+    }
+    r++;
+  }
+
+  subtotalRow("Tổng Tiền mặt / CK", AMOUNT_COL_CASH, computeCashTotal(rows));
+  subtotalRow("Tổng Công nợ", AMOUNT_COL_DEBT, computeDebtTotal(rows));
+
   // Số này gộp cả 2 cột (Tiền mặt/CK + Công nợ OTA) — đúng định nghĩa "Thu" mà mọi báo cáo khác
   // trong app đang dùng (OTA công nợ tính là Thu dù chưa thu được tiền thật), nên gộp ô cho rõ đây
   // không phải chỉ riêng cột Tiền mặt/CK.
@@ -149,8 +180,9 @@ export async function buildActivityReportWorkbook(params: {
   const pendingTotal = rows.filter((row) => row.kind === "PENDING").reduce((sum, row) => sum + row.amount, 0);
   const transferTotal = rows.filter((row) => row.kind === "OWNER_TRANSFER").reduce((sum, row) => sum + row.amount, 0);
   const notes: string[] = [];
-  if (pendingTotal > 0) notes.push(`Còn phải thu (chưa tính vào Thu-Chi): ${formatVnd(pendingTotal)}`);
-  if (transferTotal > 0) notes.push(`Đã chuyển tiếp cho Cô Vân (không tính vào Thu-Chi): ${formatVnd(transferTotal)}`);
+  if (pendingTotal > 0) notes.push(`Trong đó Còn phải thu (chưa tính vào Tổng cộng): ${formatVnd(pendingTotal)}`);
+  if (transferTotal > 0)
+    notes.push(`Đã chuyển tiếp cho Cô Vân (không tính vào Tổng tiền mặt/CK, không phải tiền thu mới): ${formatVnd(transferTotal)}`);
   for (const note of notes) {
     sheet.mergeCells(r, 1, r, LAST_COL);
     const cell = sheet.getCell(r, 1);
