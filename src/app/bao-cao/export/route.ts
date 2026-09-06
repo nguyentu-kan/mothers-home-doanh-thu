@@ -14,7 +14,7 @@ function buildExportFilename(from: Date, to: Date): string {
   const fromStr = format(from, "dd-MM-yyyy");
   const toStr = format(to, "dd-MM-yyyy");
   const range = fromStr === toStr ? fromStr : `${fromStr}_den_${toStr}`;
-  return `Mothers-Home-Bao-cao-chi-tiet_${range}.xlsx`;
+  return `Mothers-Home-Bao-cao-Thu-Chi_${range}.xlsx`;
 }
 
 export async function GET(request: NextRequest) {

@@ -22,12 +22,22 @@ const COLUMNS = [
   { header: "Loại", width: 18 },
   { header: "Sàn", width: 12 },
   { header: "Nội dung", width: 44 },
-  { header: "Số tiền", width: 16 },
+  { header: "Tiền mặt / CK", width: 16 },
+  { header: "Công nợ", width: 16 },
   { header: "Hình thức", width: 24 },
   { header: "Người ghi", width: 14 },
   { header: "Link chứng từ", width: 18 },
 ];
 const LAST_COL = COLUMNS.length;
+const AMOUNT_COL_CASH = 5;
+const AMOUNT_COL_DEBT = 6;
+
+// Tách 2 cột để không ai lỡ đọc nhầm công nợ (OTA/còn phải thu — CHƯA có tiền thật) thành tiền đã có
+// trong tay. Không đổi cách tính TỔNG CỘNG (Thu-Chi) — vẫn khớp với mọi báo cáo khác trong app,
+// vốn đã tính OTA công nợ là "Thu" (xem computeTotal bên dưới); 2 cột này chỉ là hiển thị trực quan.
+function isDebtRow(kind: ActivityRow["kind"]): boolean {
+  return kind === "OTA" || kind === "PENDING";
+}
 
 // Khoản "Còn phải thu" (chưa có tiền thật) và "Chuyển tiếp cho Cô Vân" (đã tính vào Thu ở chỗ khác,
 // đây chỉ là điều chuyển nội bộ) KHÔNG được tính vào Thu-Chi thật — đúng công thức app đang dùng ở
@@ -90,16 +100,17 @@ export async function buildActivityReportWorkbook(params: {
     excelRow.getCell(3).value = row.platform || "";
     excelRow.getCell(4).value = row.description;
 
-    const amountCell = excelRow.getCell(5);
+    const amountCol = isDebtRow(row.kind) ? AMOUNT_COL_DEBT : AMOUNT_COL_CASH;
+    const amountCell = excelRow.getCell(amountCol);
     amountCell.value = row.amount;
     amountCell.numFmt = '#,##0" đ"';
     amountCell.alignment = { horizontal: "right", vertical: "middle" };
     if (row.amount < 0) amountCell.font = { color: { argb: RED } };
 
-    excelRow.getCell(6).value = row.method;
-    excelRow.getCell(7).value = row.recordedByName;
+    excelRow.getCell(7).value = row.method;
+    excelRow.getCell(8).value = row.recordedByName;
 
-    const attachCell = excelRow.getCell(8);
+    const attachCell = excelRow.getCell(9);
     if (row.attachmentUrls.length === 1) {
       attachCell.value = { text: "📎 Xem chứng từ", hyperlink: row.attachmentUrls[0] };
       attachCell.font = { color: { argb: "FF1B5EAA" }, underline: true };
@@ -110,18 +121,22 @@ export async function buildActivityReportWorkbook(params: {
     for (let c = 1; c <= LAST_COL; c++) {
       const cell = excelRow.getCell(c);
       cell.border = THIN_BORDER;
-      if (c !== 5) cell.alignment = { vertical: "middle", wrapText: c === 4 };
+      if (c !== AMOUNT_COL_CASH && c !== AMOUNT_COL_DEBT) cell.alignment = { vertical: "middle", wrapText: c === 4 };
     }
     r++;
   }
 
+  // Số này gộp cả 2 cột (Tiền mặt/CK + Công nợ OTA) — đúng định nghĩa "Thu" mà mọi báo cáo khác
+  // trong app đang dùng (OTA công nợ tính là Thu dù chưa thu được tiền thật), nên gộp ô cho rõ đây
+  // không phải chỉ riêng cột Tiền mặt/CK.
   const total = computeTotal(rows);
   const totalRow = sheet.getRow(r);
   sheet.mergeCells(r, 1, r, 4);
-  totalRow.getCell(1).value = "TỔNG CỘNG (Thu − Chi)";
+  totalRow.getCell(1).value = "TỔNG CỘNG (Thu − Chi, gồm cả Công nợ OTA)";
   totalRow.getCell(1).font = { bold: true };
   totalRow.getCell(1).alignment = { horizontal: "right" };
-  const totalAmountCell = totalRow.getCell(5);
+  sheet.mergeCells(r, AMOUNT_COL_CASH, r, AMOUNT_COL_DEBT);
+  const totalAmountCell = totalRow.getCell(AMOUNT_COL_CASH);
   totalAmountCell.value = total;
   totalAmountCell.numFmt = '#,##0" đ"';
   totalAmountCell.font = { bold: true, color: { argb: total < 0 ? RED : GREEN } };
