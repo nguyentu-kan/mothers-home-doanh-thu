@@ -137,16 +137,16 @@ export async function buildActivityReportWorkbook(params: {
     r++;
   }
 
-  function subtotalRow(label: string, col: number, value: number) {
+  function subtotalRow(label: string, col: number, formula: string, cachedResult: number) {
     const row = sheet.getRow(r);
     sheet.mergeCells(r, 1, r, 4);
     row.getCell(1).value = label;
     row.getCell(1).font = { bold: true };
     row.getCell(1).alignment = { horizontal: "right" };
     const cell = row.getCell(col);
-    cell.value = value;
+    cell.value = { formula, result: cachedResult };
     cell.numFmt = '#,##0" đ"';
-    cell.font = { bold: true, color: { argb: value < 0 ? RED : GREEN } };
+    cell.font = { bold: true, color: { argb: cachedResult < 0 ? RED : GREEN } };
     cell.alignment = { horizontal: "right" };
     for (let c = 1; c <= LAST_COL; c++) {
       row.getCell(c).border = { top: { style: "thin", color: { argb: "FF999999" } } };
@@ -154,12 +154,32 @@ export async function buildActivityReportWorkbook(params: {
     r++;
   }
 
-  subtotalRow("Tổng Tiền mặt / CK", AMOUNT_COL_CASH, computeCashTotal(rows));
-  subtotalRow("Tổng Công nợ", AMOUNT_COL_DEBT, computeDebtTotal(rows));
+  // Dùng công thức Excel thật (SUMIF/SUM) thay vì số tính sẵn — bạn sửa/xoá dòng nào trong bảng thì
+  // các dòng tổng bên dưới tự cập nhật lại, không cần chạy lại từ app. "Chuyển tiếp cho Cô Vân" phải
+  // lọc ra bằng SUMIF (dựa theo cột "Loại") thay vì SUM thường, vì nếu cộng cả dòng đó vào Tổng tiền
+  // mặt sẽ bị tính trùng (tiền đó đã tính 1 lần lúc khách trả tiền phòng rồi).
+  const firstDataRow = 7;
+  const lastDataRow = Math.max(r - 1, firstDataRow);
+  const typeCol = sheet.getColumn(2).letter;
+  const cashCol = sheet.getColumn(AMOUNT_COL_CASH).letter;
+  const debtCol = sheet.getColumn(AMOUNT_COL_DEBT).letter;
+  const typeRange = `${typeCol}${firstDataRow}:${typeCol}${lastDataRow}`;
+  const cashRange = `${cashCol}${firstDataRow}:${cashCol}${lastDataRow}`;
+  const debtRange = `${debtCol}${firstDataRow}:${debtCol}${lastDataRow}`;
+
+  const cashSubtotalRowNum = r;
+  subtotalRow(
+    "Tổng Tiền mặt / CK",
+    AMOUNT_COL_CASH,
+    `SUMIF(${typeRange},"<>Chuyển tiếp cho Cô Vân",${cashRange})`,
+    computeCashTotal(rows)
+  );
+  subtotalRow("Tổng Công nợ", AMOUNT_COL_DEBT, `SUM(${debtRange})`, computeDebtTotal(rows));
 
   // Số này gộp cả 2 cột (Tiền mặt/CK + Công nợ OTA) — đúng định nghĩa "Thu" mà mọi báo cáo khác
-  // trong app đang dùng (OTA công nợ tính là Thu dù chưa thu được tiền thật), nên gộp ô cho rõ đây
-  // không phải chỉ riêng cột Tiền mặt/CK.
+  // trong app đang dùng (OTA công nợ tính là Thu dù chưa thu được tiền thật): Tổng tiền mặt (đã lọc
+  // "Chuyển tiếp cho Cô Vân") cộng thêm riêng phần OTA công nợ trong cột Công nợ (KHÔNG cộng "Còn
+  // phải thu" — vẫn không tính vào Tổng cộng, xem ghi chú bên dưới).
   const total = computeTotal(rows);
   const totalRow = sheet.getRow(r);
   sheet.mergeCells(r, 1, r, 4);
@@ -168,7 +188,10 @@ export async function buildActivityReportWorkbook(params: {
   totalRow.getCell(1).alignment = { horizontal: "right" };
   sheet.mergeCells(r, AMOUNT_COL_CASH, r, AMOUNT_COL_DEBT);
   const totalAmountCell = totalRow.getCell(AMOUNT_COL_CASH);
-  totalAmountCell.value = total;
+  totalAmountCell.value = {
+    formula: `${cashCol}${cashSubtotalRowNum}+SUMIF(${typeRange},"OTA công nợ",${debtRange})`,
+    result: total,
+  };
   totalAmountCell.numFmt = '#,##0" đ"';
   totalAmountCell.font = { bold: true, color: { argb: total < 0 ? RED : GREEN } };
   totalAmountCell.alignment = { horizontal: "right" };
