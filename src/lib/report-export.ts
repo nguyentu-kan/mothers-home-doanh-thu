@@ -21,7 +21,6 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
 const COLUMNS = [
   { header: "Thời gian", width: 18 },
   { header: "Loại", width: 18 },
-  { header: "Sàn", width: 12 },
   { header: "Nội dung", width: 44 },
   { header: "Số tiền", width: 16 },
   { header: "Hình thức", width: 24 },
@@ -29,7 +28,7 @@ const COLUMNS = [
   { header: "Link chứng từ", width: 18 },
 ];
 const LAST_COL = COLUMNS.length;
-const AMOUNT_COL = 5;
+const AMOUNT_COL = 4;
 
 // OTA công nợ/Còn phải thu CHƯA có tiền thật — tô màu xanh dương khác với tiền mặt/CK (đen) và chi
 // phí (đỏ) để không lỡ đọc nhầm là tiền đã có trong tay, dù chung 1 cột Số tiền.
@@ -95,8 +94,7 @@ export async function buildActivityReportWorkbook(params: {
     const excelRow = sheet.getRow(r);
     excelRow.getCell(1).value = formatDateTimeVn(row.time);
     excelRow.getCell(2).value = row.type;
-    excelRow.getCell(3).value = row.platform || "";
-    excelRow.getCell(4).value = row.description;
+    excelRow.getCell(3).value = row.description;
 
     const amountCell = excelRow.getCell(AMOUNT_COL);
     amountCell.value = row.amount;
@@ -105,10 +103,10 @@ export async function buildActivityReportWorkbook(params: {
     if (row.amount < 0) amountCell.font = { color: { argb: RED } };
     else if (isDebtRow(row.kind)) amountCell.font = { color: { argb: DEBT_BLUE } };
 
-    excelRow.getCell(6).value = row.method;
-    excelRow.getCell(7).value = row.recordedByName;
+    excelRow.getCell(5).value = row.method;
+    excelRow.getCell(6).value = row.recordedByName;
 
-    const attachCell = excelRow.getCell(8);
+    const attachCell = excelRow.getCell(7);
     if (row.attachmentUrls.length === 1) {
       attachCell.value = { text: "📎 Xem chứng từ", hyperlink: row.attachmentUrls[0] };
       attachCell.font = { color: { argb: DEBT_BLUE }, underline: true };
@@ -119,7 +117,7 @@ export async function buildActivityReportWorkbook(params: {
     for (let c = 1; c <= LAST_COL; c++) {
       const cell = excelRow.getCell(c);
       cell.border = THIN_BORDER;
-      if (c !== AMOUNT_COL) cell.alignment = { vertical: "middle", wrapText: c === 4 };
+      if (c !== AMOUNT_COL) cell.alignment = { vertical: "middle", wrapText: c === 3 };
     }
     r++;
   }
@@ -137,7 +135,7 @@ export async function buildActivityReportWorkbook(params: {
 
   const total = computeTotal(rows);
   const totalRow = sheet.getRow(r);
-  sheet.mergeCells(r, 1, r, 4);
+  sheet.mergeCells(r, 1, r, AMOUNT_COL - 1);
   totalRow.getCell(1).value = "TỔNG CỘNG (Thu − Chi, gồm cả Công nợ OTA)";
   totalRow.getCell(1).font = { bold: true };
   totalRow.getCell(1).alignment = { horizontal: "right" };
